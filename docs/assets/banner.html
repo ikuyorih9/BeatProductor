@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Beat Productor — banner</title>
+<!-- Fonte do banner. Gere o PNG com: node docs/assets/render-banner.mjs -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; }
+  body {
+    width: 1280px; height: 640px; overflow: hidden; position: relative;
+    background: radial-gradient(1200px 600px at 20% 40%, #13213d 0%, #0b1220 55%, #070b14 100%);
+    font-family: 'Inter', system-ui, sans-serif; color: #e2e8f0;
+  }
+  /* Piano roll ao fundo: linhas de nota e de tempo */
+  .grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(to right, rgba(148,163,184,.10) 1px, transparent 1px),
+      linear-gradient(to right, rgba(148,163,184,.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(148,163,184,.06) 1px, transparent 1px);
+    background-size: 160px 100%, 40px 100%, 100% 32px;
+    mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,.35) 35%, #000 70%);
+  }
+  .note { position: absolute; height: 22px; border-radius: 5px; box-shadow: inset 0 -3px 0 rgba(0,0,0,.25); }
+  .rest { background: #f1f5f9; border: 1px solid #94a3b8; }
+  .content { position: absolute; left: 96px; top: 0; bottom: 0; display: flex; align-items: center; gap: 44px; }
+  .logo { width: 168px; height: 168px; flex: none; filter: drop-shadow(0 18px 40px rgba(56,189,248,.18)); }
+  h1 {
+    margin: 0; font-family: 'Playfair Display', Georgia, 'Times New Roman', serif; font-weight: 800;
+    font-size: 104px; line-height: .95; letter-spacing: -1px; color: #f8fafc;
+  }
+  h1 span { color: #38bdf8; }
+  p { margin: 22px 0 0; font-size: 26px; color: #94a3b8; letter-spacing: .2px; }
+  .bar { margin-top: 30px; display: flex; gap: 10px; }
+  .bar i { display: block; height: 6px; border-radius: 3px; }
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+
+  <!-- notas decorativas (cores dos instrumentos: piano, bateria, lofi, lead) -->
+  <div class="note" style="left:760px; top:70px;  width:150px; background:#38bdf8; opacity:.85"></div>
+  <div class="note" style="left:950px; top:102px; width:110px; background:#38bdf8; opacity:.7"></div>
+  <div class="note" style="left:1080px;top:134px; width:190px; background:#4ade80; opacity:.75"></div>
+  <div class="note rest" style="left:900px; top:166px; width:70px; opacity:.55"></div>
+  <div class="note" style="left:1000px;top:198px; width:230px; background:#a78bfa; opacity:.6"></div>
+  <div class="note" style="left:820px; top:454px; width:40px;  background:#f97316; opacity:.7"></div>
+  <div class="note" style="left:900px; top:454px; width:40px;  background:#f97316; opacity:.7"></div>
+  <div class="note" style="left:980px; top:486px; width:40px;  background:#f97316; opacity:.8"></div>
+  <div class="note" style="left:1060px;top:454px; width:40px;  background:#f97316; opacity:.7"></div>
+  <div class="note" style="left:1140px;top:454px; width:40px;  background:#f97316; opacity:.7"></div>
+  <div class="note" style="left:1220px;top:486px; width:40px;  background:#f97316; opacity:.8"></div>
+  <div class="note" style="left:860px; top:518px; width:330px; background:#a78bfa; opacity:.5"></div>
+  <div class="note" style="left:1040px;top:550px; width:150px; background:#4ade80; opacity:.55"></div>
+
+  <div class="content">
+    <!-- Logo: a mesma do favicon do app (três notas num piano roll) -->
+    <svg class="logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-label="Logo do Beat Productor">
+      <rect width="32" height="32" rx="6" fill="#0f172a" stroke="#1e3a5f" stroke-width=".5"/>
+      <rect x="6" y="8" width="8" height="4" rx="1" fill="#38bdf8"/>
+      <rect x="12" y="14" width="12" height="4" rx="1" fill="#a78bfa"/>
+      <rect x="8" y="20" width="6" height="4" rx="1" fill="#f97316"/>
+    </svg>
+    <div>
+      <h1>Beat <span>Productor</span></h1>
+      <p>Crie beats e melodias num piano roll, direto no navegador.</p>
+      <div class="bar">
+        <i style="width:72px;background:#38bdf8"></i>
+        <i style="width:40px;background:#f97316"></i>
+        <i style="width:56px;background:#a78bfa"></i>
+        <i style="width:28px;background:#4ade80"></i>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
