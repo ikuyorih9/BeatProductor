@@ -2,7 +2,7 @@
  * Ponto de entrada do frontend: cria o estado, os componentes e liga tudo.
  */
 import {
-  INSTRUMENT_IDS, INSTRUMENTS, LOWEST_MIDI, OCTAVES, ROW_HEIGHT,
+  APP_BUILD, INSTRUMENT_IDS, INSTRUMENTS, LOWEST_MIDI, OCTAVES, ROW_HEIGHT,
 } from './config.js';
 import { AudioEngine } from './audio/engine.js';
 import { AudioScheduler } from './audio/scheduler.js';
@@ -593,7 +593,7 @@ function frame() {
 // ---------------------------------------------------------------- inicialização
 // Ponto de inspeção para depuração no console e para os testes E2E.
 window.__beatProductor = {
-  store, sequence, transport, range, grid, audio: engine, getLayout: () => layout,
+  store, sequence, transport, range, grid, audio: engine, getLayout: () => layout, build: APP_BUILD,
 };
 
 keys.render(store.get().instrument);

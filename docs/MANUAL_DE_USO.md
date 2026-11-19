@@ -397,6 +397,7 @@ Os atalhos ficam desativados enquanto você digita num campo (BPM, Compassos, Lo
 | O Windows/antivírus avisa sobre o exe | O lançador é compilado localmente e não tem assinatura digital. Dá para recompilá-lo a partir do código em `launcher\` com `launcher\build.ps1`, ou usar `scripts\run.ps1` no lugar. |
 | `python` não é reconhecido (terminal) | Use o `BeatProductor.exe`, ou instale o Python 3.12–3.14 marcando *"Add Python to PATH"* e abra um novo terminal. |
 | "A execução de scripts foi desabilitada" | Use exatamente `powershell -ExecutionPolicy Bypass -File scripts\run.ps1`. |
+| Depois de atualizar, o app abre mas nada funciona (instrumentos vazios, sem notas) | O navegador misturou arquivos antigos do cache com os novos. A página tenta se corrigir sozinha (recarrega uma vez); se aparecer o aviso vermelho, aperte **Ctrl+F5**. Desde esta versão o servidor manda o navegador conferir os arquivos a cada abertura, então isso não deve se repetir. |
 | Porta 8000 em uso | Rode com outra porta (`scripts\run.ps1 -Port 9000`) e abra `http://127.0.0.1:9000`. |
 | Não sai som | Clique em PLAY ou numa tecla (o navegador só libera o áudio após um clique) e confira o volume. Se aparecer "Áudio indisponível", use Chrome, Edge ou Firefox atualizados. |
 | "O áudio foi interrompido pelo sistema" | O sistema suspendeu o áudio (troca de fone/caixa, economia de energia). Aperte PLAY de novo. |

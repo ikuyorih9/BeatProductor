@@ -123,5 +123,45 @@
   <div id="toast-area" class="pointer-events-none fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2" aria-live="polite"></div>
 
   <script type="module" src="js/main.js"></script>
+  <script>
+    // Rede de segurança: se o app não iniciar (ex.: o navegador misturou arquivos antigos do cache
+    // com os novos depois de uma atualização), recarrega UMA vez buscando todos os scripts de novo;
+    // se ainda assim falhar, mostra o que fazer em vez de deixar a tela sem resposta. Também cobre o
+    // navegador rodando a versão antiga inteira do cache (o número de versão não bate).
+    (function () {
+      var APP_BUILD = 3; // = APP_BUILD de js/config.js
+      var KEY = 'beat-productor:recarregou';
+      var failed = false;
+      function started() { return !!window.__beatProductor && window.__beatProductor.build === APP_BUILD; }
+      function recover() {
+        if (failed || started()) return;
+        failed = true;
+        var retried = false;
+        try { retried = sessionStorage.getItem(KEY) === '1'; sessionStorage.setItem(KEY, '1'); } catch (e) { retried = true; }
+        if (!retried) {
+          var urls = performance.getEntriesByType('resource')
+            .map(function (entry) { return entry.name; })
+            .filter(function (url) { return url.indexOf(location.origin) === 0 && /\.(m?js|css)(\?|$)/.test(url); });
+          urls.push(location.origin + location.pathname.replace(/[^/]*$/, '') + 'js/main.js');
+          Promise.all(urls.map(function (url) { return fetch(url, { cache: 'reload' }).catch(function () {}); }))
+            .then(function () { location.reload(); });
+          return;
+        }
+        var box = document.createElement('div');
+        box.setAttribute('role', 'alert');
+        box.style.cssText = 'position:fixed;inset:auto 16px 16px 16px;z-index:9999;padding:14px 16px;border-radius:8px;'
+          + 'background:#7f1d1d;color:#fff;font:14px/1.4 system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.4)';
+        box.textContent = 'O Beat Productor não conseguiu iniciar. Recarregue a página com Ctrl+F5 (ou Ctrl+Shift+R). '
+          + 'Se continuar, feche e abra o app de novo.';
+        document.body.appendChild(box);
+      }
+      window.addEventListener('error', function () { setTimeout(recover, 300); });
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          if (started()) { try { sessionStorage.removeItem(KEY); } catch (e) {} } else { recover(); }
+        }, 4000);
+      });
+    })();
+  </script>
 </body>
 </html>

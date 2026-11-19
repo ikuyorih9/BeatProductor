@@ -161,3 +161,11 @@ def test_mp3_decodes_with_expected_duration(client, tmp_path):
     seconds = len(result.stdout) / 2 / SAMPLE_RATE
     expected = float(response.headers["x-audio-duration"])
     assert abs(seconds - expected) < 0.1  # encoder/decoder adicionam poucos ms de padding
+
+
+def test_frontend_is_always_revalidated_so_updates_never_mix_old_and_new_modules(client):
+    for path in ("/", "/js/main.js", "/js/config.js", "/css/styles.css"):
+        response = client.get(path)
+        assert response.status_code == 200, path
+        assert response.headers["cache-control"] == "no-cache", path
+    assert "no-cache" not in client.get("/api/health").headers.get("cache-control", "")

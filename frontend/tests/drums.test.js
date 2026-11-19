@@ -136,3 +136,12 @@ test('arrastar a seleção fica preso às linhas permitidas (kit da bateria)', (
   assert.deepEqual(clampMove(items, -10, 0, bounds), { dRows: -3, dTicks: 0 }); // 52 → 55 (prato)
   assert.deepEqual(clampMove(items, 10, 0, bounds), { dRows: 2, dTicks: 0 }); // 50 → 48 (bumbo)
 });
+
+test('index.html espera a mesma versão do frontend que o config.js declara', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { APP_BUILD } = await import('../js/config.js');
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const match = /var APP_BUILD = (\d+);/.exec(html);
+  assert.ok(match, 'index.html sem APP_BUILD');
+  assert.equal(Number(match[1]), APP_BUILD);
+});

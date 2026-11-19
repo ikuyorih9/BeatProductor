@@ -34,6 +34,16 @@ def create_app() -> FastAPI:
     )
     app.include_router(router)
 
+    @app.middleware("http")
+    async def _always_revalidate_frontend(request: Request, call_next):
+        """Sem isto o navegador reaproveita JS antigo do cache depois de uma atualização e pode
+        misturar módulos de versões diferentes (o app quebra ao carregar). Com `no-cache` ele
+        confere cada arquivo a cada abertura — barato: sem mudança, responde 304 pelo ETag."""
+        response = await call_next(request)
+        if not request.url.path.startswith("/api"):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
     @app.exception_handler(Exception)
     async def _unexpected_error(_request: Request, exc: Exception) -> JSONResponse:
         logger.exception("Erro inesperado: %s", exc)

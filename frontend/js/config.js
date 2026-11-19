@@ -8,6 +8,13 @@
  * O BPM sempre conta SEMÍNIMAS por minuto (♩ = BPM), como na maioria das partituras e DAWs.
  */
 
+/**
+ * Versão do frontend. O index.html espera exatamente este número: se o navegador rodar módulos
+ * antigos do cache, o número não bate e a página busca os arquivos de novo (ver index.html).
+ * Aumente junto com APP_BUILD do index.html quando os módulos mudarem (um teste confere).
+ */
+export const APP_BUILD = 3;
+
 export const TICKS_PER_BEAT = 12; // ticks por semínima
 /** Ticks de uma semibreve (4 semínimas) — base para converter figuras: 1/8 de semibreve = 6 ticks. */
 export const TICKS_PER_WHOLE = TICKS_PER_BEAT * 4;

@@ -494,6 +494,30 @@ colcheia (4) não dividem o compasso.
 
 ---
 
+## 2026-11-19 — App "completamente bugado" depois da atualização da bateria
+
+**Relato:** depois da atualização, o app abria mas não dava para escolher instrumento e as notas não apareciam.
+
+**Causa (reproduzida):** cache do navegador.
+- O servidor de arquivos não mandava `Cache-Control`. Sem ele, o navegador decide sozinho por quanto tempo reaproveitar cada arquivo, pela idade do arquivo.
+- Depois da atualização, uns módulos vieram novos e outros antigos do cache. O `music.js` novo importava `DRUM_HIGHEST_MIDI` do `config.js` antigo.
+- Resultado: `SyntaxError: The requested module '../config.js' does not provide an export named 'DRUM_HIGHEST_MIDI'`. O JS inteiro deixa de carregar e a página fica só com o HTML parado.
+- Os testes não pegaram porque cada execução usa um navegador com o cache vazio.
+- Reproduzi servindo a versão anterior (`eecc43e`), trocando o servidor pela nova e recarregando. Com arquivos antigos e novos misturados, deu exatamente o erro acima. Com todos antigos, o navegador rodou a versão velha inteira.
+
+**Correção:**
+- **Servidor:** `Cache-Control: no-cache` em todo o frontend. O navegador confere cada arquivo a cada abertura; sem mudança, a resposta é um 304 barato.
+- **Rede de segurança no `index.html`:** se o app não iniciar, ou iniciar com outra versão (`APP_BUILD` do `config.js` diferente da esperada pelo HTML):
+  - busca de novo todos os scripts, com `fetch(..., { cache: 'reload' })`, o que atualiza o cache;
+  - recarrega uma única vez;
+  - se ainda assim falhar, mostra um aviso com o que fazer (Ctrl+F5).
+- **Verificação:** no mesmo cenário de cache misturado, a página caiu no erro, recarregou sozinha e abriu a versão nova. No cenário "tudo antigo", também abriu a nova.
+- **Testes novos:**
+  - pytest: o frontend sai com `no-cache` e a API não;
+  - `node:test`: o `APP_BUILD` do HTML bate com o do `config.js`.
+
+---
+
 ## Resumo final
 
 | Requisito | Onde |
@@ -509,4 +533,4 @@ colcheia (4) não dividem o compasso.
 | RNF02 Sem build/dependências pesadas | Vanilla JS em ES Modules + Tailwind via CDN, zero pacotes npm |
 | RNF03 MP3 limpo, sem cortes no loop | overlap-add, normalização −1 dBFS, fades de borda |
 
-**Totais:** 124 testes pytest · 99 testes `node:test` · 42 verificações E2E em navegador real.
+**Totais:** 125 testes pytest · 100 testes `node:test` · 42 verificações E2E em navegador real.
