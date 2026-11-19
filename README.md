@@ -19,6 +19,14 @@ Aplicação web minimalista para criação rápida de beats e sequências musica
 
 ## Execução rápida
 
+### Windows: duplo clique em **`BeatProductor.exe`** (na raiz do projeto)
+
+Ele faz tudo sozinho: encontra o Python, prepara o ambiente na primeira vez, escolhe uma porta livre,
+sobe o servidor e abre o navegador. Para encerrar, feche a janela.
+Opções de linha de comando: `--port N`, `--no-browser`, `--no-pause`.
+
+### Pelo terminal
+
 ```powershell
 # Windows (PowerShell)
 powershell -ExecutionPolicy Bypass -File scripts\run.ps1
@@ -91,6 +99,8 @@ BeatProductor/
 │   ├── requirements.txt      # Dependências de execução
 │   ├── requirements-dev.txt  # + dependências de teste
 │   └── pyproject.toml        # Configuração do pytest
+├── BeatProductor.exe         # Lançador para Windows (duplo clique)
+├── launcher/                 # Código do lançador (C#), ícone e script de build
 ├── tests/e2e/                # Teste ponta a ponta em navegador headless (CDP)
 ├── docs/                     # Manual, diário, API e especificação
 └── scripts/                  # run.ps1/.sh (executar) e test.ps1/.sh (testar tudo)

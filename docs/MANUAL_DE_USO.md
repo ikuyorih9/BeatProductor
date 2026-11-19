@@ -21,7 +21,21 @@ ouve o resultado na hora no navegador e exporta um arquivo **MP3**.
 - **Python 3.10 ou mais novo** ([python.org](https://www.python.org/downloads/)) — no Windows, marque *"Add Python to PATH"* na instalação.
 - Chrome, Edge ou Firefox atualizado, com acesso à internet.
 
-### Iniciar
+### Iniciar no Windows (jeito fácil)
+
+Dê **duplo clique em `BeatProductor.exe`**, na pasta principal do projeto. Uma janela preta abre e:
+
+1. na **primeira vez**, cria o ambiente Python e baixa as dependências (precisa de internet; 1 a 3 minutos);
+2. sobe o servidor numa porta livre (8000 ou a próxima disponível);
+3. abre o Beat Productor no seu navegador.
+
+**Deixe a janela aberta** enquanto usa o app. Para encerrar, feche a janela (ou aperte **Ctrl+C** nela).
+Se você der duplo clique de novo com ele já aberto, apenas uma nova aba do navegador é aberta.
+
+> O `BeatProductor.exe` precisa ficar na pasta do projeto, junto de `backend\` e `frontend\`.
+> Para ter um atalho na Área de Trabalho: botão direito no exe → **Enviar para → Área de trabalho (criar atalho)**.
+
+### Iniciar pelo terminal
 
 **Windows** — abra o PowerShell na pasta do projeto e rode:
 
@@ -192,6 +206,9 @@ Os atalhos ficam desativados enquanto você digita num campo (BPM, Compassos, Lo
 
 | Sintoma | Solução |
 |---|---|
+| O exe diz "Python 3.10 ou mais novo não foi encontrado" | Instale o Python pelo link mostrado, marcando *"Add Python to PATH"*, e abra o exe de novo. |
+| A janela do exe mostra um erro e fica parada | Leia a mensagem (ela diz o que fazer) e aperte Enter para fechar. |
+| O Windows/antivírus avisa sobre o exe | O lançador é compilado localmente e não tem assinatura digital. Dá para recompilá-lo a partir do código em `launcher\` com `launcher\build.ps1`, ou usar `scripts\run.ps1` no lugar. |
 | `python` não é reconhecido | Instale o Python 3.10+ marcando *"Add Python to PATH"* e abra um novo terminal. |
 | "A execução de scripts foi desabilitada" | Use exatamente `powershell -ExecutionPolicy Bypass -File scripts\run.ps1`. |
 | Porta 8000 em uso | Rode com outra porta (`scripts\run.ps1 -Port 9000`) e abra `http://127.0.0.1:9000`. |

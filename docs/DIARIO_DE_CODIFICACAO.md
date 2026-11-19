@@ -174,6 +174,36 @@ em cada fase do roadmap (ver [especificação](especificacao/especificacao-mvp.m
 
 ---
 
+## 2026-11-19 — Extra: lançador `BeatProductor.exe`
+
+**Feito**
+- `BeatProductor.exe` na raiz (17 KB): duplo clique encontra o Python 3.10+ (`py -3`, `python`, `python3`), cria o
+  `.venv` na primeira vez, instala as dependências **só quando `requirements.txt` muda** (hash SHA-256 guardado em
+  `.venv/.beatproductor-deps`), escolhe porta livre de 8000 a 8020, sobe o servidor, espera `/api/health` e abre o navegador.
+- Se o app já estiver rodando, o exe apenas abre o navegador. Fechar a janela ou Ctrl+C encerra o servidor.
+- Erros com instrução do que fazer (Python ausente, porta ocupada, exe fora da pasta do projeto, falha de instalação);
+  a janela espera Enter para o usuário conseguir ler a mensagem.
+- Código em `launcher/BeatProductor.cs`, ícone gerado por `launcher/make_icon.py` (biblioteca padrão),
+  build com `launcher/build.ps1`.
+
+**Decisões**
+- **C# compilado com o `csc.exe` do .NET Framework** (vem em todo Windows) em vez de PyInstaller: o exe fica com
+  17 KB em vez de centenas de MB (NumPy/SciPy embutidos), não precisa de pacote extra e é recompilável sem Visual Studio.
+  Código restrito a C# 5, a versão suportada por esse compilador.
+- O exe **não embute** Python nem as bibliotecas: usa o Python da máquina e o `.venv` do projeto, como os scripts.
+- Duas checagens de porta (conectar + reservar com `ExclusiveAddressUse`), porque no Windows um bind em
+  `127.0.0.1` pode ter sucesso mesmo com outro programa escutando em `0.0.0.0`.
+
+**Verificação** (exe real, janela oculta, saída capturada)
+- A: início normal → servidor responde em `/api/health`; o carimbo de dependências é gravado.
+- B: segunda instância → detecta o app rodando e termina com código 0.
+- C: `--port 8000` ocupada por outro programa → erro claro, código 1.
+- D: 8000 ocupada por outro programa → usa 8001 e pula o pip ("Dependências OK").
+- E: **clone limpo sem `.venv`** → cria o ambiente, instala tudo da internet, sobe o servidor e `POST /api/export` devolve um MP3.
+- F: exe fora da pasta do projeto → erro explicando onde ele deve ficar.
+
+---
+
 ## Resumo final
 
 | Requisito | Onde |
