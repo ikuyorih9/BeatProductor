@@ -94,7 +94,7 @@ Quando aparecer *"Beat Productor rodando em http://127.0.0.1:8000"*, abra esse e
 | Controle | O que faz |
 |---|---|
 | **Instrumento** | Instrumento das novas notas: Piano Acústico, Bateria, Lofi Synth ou Lead Synth. A faixa colorida à esquerda do seletor é a cor das notas desse instrumento. As notas dos outros instrumentos continuam no grid, esmaecidas. |
-| **Compasso** | Fórmula de compasso da partitura: `2/4`, `3/4`, `4/4` (padrão), `5/4`, `6/8`, `12/8`. Define as barras de compasso, os tempos da régua e a posição *compasso.tempo*. Trocar **não move** as notas. |
+| **Compasso** | Fórmula de compasso da partitura: `2/4`, `3/4`, `4/4` (padrão), `5/4`, `3/8`, `5/8`, `6/8`, `7/8`, `9/8`, `12/8`. Define as barras de compasso, os tempos da régua e a posição *compasso.tempo*. Trocar **não move** as notas. Em 3/8, 5/8, 7/8 e 9/8 a célula de semínima e a de tercina de colcheia não cabem no compasso e ficam desabilitadas (o app muda para colcheia e avisa). |
 | **BPM (♩)** | Andamento em **semínimas por minuto**, de 40 a 240 (padrão 120) — o mesmo número da indicação de metrônomo "♩ = 120" da partitura. Muda em tempo real. Veja 4.7 para compassos 6/8. |
 | **Compassos** | Tamanho da sequência (1 a 16; padrão 4). Diminuir não apaga notas: elas reaparecem ao aumentar de novo. |
 | **Célula** | A **figura** de cada célula do grid, com o nome da partitura: `1/4` semínima ♩, `1/8` colcheia ♪, `1/8 tercina`, `1/16` semicolcheia (padrão), `1/16 tercina`. Um clique = uma nota dessa figura. Trocar a célula **não altera** as notas já criadas. |
@@ -329,7 +329,8 @@ Cada nota é uma linha **`posição  nota  duração  [pausa]`**, separadas por 
 | **duração** | Em **tempos** do compasso: inteiro, fração, misto ou decimal | `1` · `2` · `1/2` · `1+1/2` · `1.5` · `1/3` (tercina) |
 | **pausa** | Opcional, no fim | Torna a linha uma pausa (bloco branco). Forma curta: `2.1  pausa  3`. |
 
-- O **tempo** é a figura de baixo da fórmula de compasso: semínima em 2/4, 3/4, 4/4 e 5/4; **colcheia** em 6/8 e 12/8.
+- O **tempo** é a figura de baixo da fórmula de compasso: semínima em x/4; **colcheia** em x/8 (3/8, 6/8, 9/8…).
+- Em 3/8, 5/8, 7/8 e 9/8 o campo `divisao` não pode ser `1/4` nem `1/8T` (não cabem no compasso).
   Em 4/4: `1` = semínima, `2` = mínima, `4` = semibreve, `1/2` = colcheia, `1/4` = semicolcheia.
 - A menor fração possível é 1/12 de semínima (o grid é exato até a sextina).
 - Seções e campos podem vir em qualquer ordem e com maiúsculas/acentos (`[Projeto]`, `Divisão`). Campos que

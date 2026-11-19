@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { CELL_WIDTH, DIVISIONS, METERS } from '../js/config.js';
 import { cellAtX, computeLayout, dragToSpan, rowAtY } from '../js/core/layout.js';
 import {
-  cellWidthPx, formatBarBeat, formatClock, lengthInTicks, meterInfo, secondsPerTick, ticksPerBar, ticksPerCell,
+  cellWidthPx, divisionFitsMeter, formatBarBeat, formatClock, lengthInTicks, meterInfo, secondsPerTick, ticksPerBar, ticksPerCell,
   ticksToSeconds, toBoundedInt,
 } from '../js/core/timing.js';
 
@@ -30,11 +30,19 @@ test('fórmulas de compasso', () => {
   assert.equal(ticksPerBar('12/8'), 72);
   assert.equal(lengthInTicks(4, '3/4'), 144);
   assert.throws(() => meterInfo('7/9'));
-  // Todo compasso cabe um número inteiro de células de qualquer divisão.
-  for (const meter of Object.keys(METERS)) {
-    for (const division of Object.keys(DIVISIONS)) {
-      assert.ok(Number.isInteger(ticksPerBar(meter) / ticksPerCell(division)), `${meter} ${division}`);
-    }
+  assert.deepEqual(meterInfo('3/8'), { beats: 3, unit: 8, beatTicks: 6, barTicks: 18 });
+  assert.equal(ticksPerBar('7/8'), 42);
+  assert.equal(formatBarBeat(18, '3/8'), '2.1');
+});
+
+test('células que não cabem no compasso (semínima em 3/8) são recusadas', () => {
+  assert.equal(divisionFitsMeter('1/4', '3/8'), false); // 3/8 = 1 semínima e meia
+  assert.equal(divisionFitsMeter('1/8T', '3/8'), false);
+  for (const division of ['1/8', '1/16', '1/16T']) {
+    for (const meter of Object.keys(METERS)) assert.ok(divisionFitsMeter(division, meter), `${division} em ${meter}`);
+  }
+  for (const meter of ['2/4', '3/4', '4/4', '5/4', '6/8', '12/8']) {
+    for (const division of Object.keys(DIVISIONS)) assert.ok(divisionFitsMeter(division, meter), `${division} em ${meter}`);
   }
 });
 
@@ -57,7 +65,7 @@ test('largura da célula depende do BPM e fica dentro dos limites', () => {
 
 test('layout é consistente em qualquer divisão e compasso', () => {
   for (const meter of Object.keys(METERS)) {
-    for (const division of Object.keys(DIVISIONS)) {
+    for (const division of Object.keys(DIVISIONS).filter((d) => divisionFitsMeter(d, meter))) {
       const layout = computeLayout({ bpm: 120, division, bars: 4, meter });
       assert.equal(layout.lengthTicks, 4 * ticksPerBar(meter));
       assert.ok(Number.isInteger(layout.totalCells));

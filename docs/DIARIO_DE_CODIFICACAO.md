@@ -334,6 +334,28 @@ em cada fase do roadmap (ver [especificação](especificacao/especificacao-mvp.m
 
 ---
 
+## 2026-11-19 — Compassos 3/8, 5/8, 7/8 e 9/8
+
+**Pedido:** "não tem 3/8 no compasso".
+
+**Por que não havia:** a lista inicial só tinha compassos com um número inteiro de semínimas, para que **toda** célula
+encaixasse. Um compasso de 3/8 tem 1 semínima e meia (18 ticks): a célula de semínima (12) e a de tercina de
+colcheia (4) não dividem o compasso.
+
+**Feito**
+- Entraram 3/8, 5/8, 7/8 e 9/8.
+- Nova regra `divisionFitsMeter(célula, compasso)`, que verifica se o compasso é múltiplo da célula. Ela vale em todos os pontos:
+  - no **cabeçalho**, as células que não cabem ficam desabilitadas. Trocar para um desses compassos com uma célula incompatível muda a célula para **colcheia** (que cabe em todos) e mostra um aviso;
+  - no **projeto salvo**, uma combinação inválida cai na célula padrão (1/16, que cabe em todos);
+  - no **arquivo de projeto**, uma combinação inválida é erro, com a explicação.
+
+**Verificação**
+- node:test 89 (+2): 3/8 e 7/8, a tabela completa de compatibilidade e um arquivo em 3/8 (válido e inválido).
+- O teste de ida e volta passou a escolher uma célula compatível em cada compasso.
+- E2E +1: semínima → 3/8 vira colcheia, a opção fica desabilitada e o aviso aparece.
+
+---
+
 ## Resumo final
 
 | Requisito | Onde |
@@ -349,4 +371,4 @@ em cada fase do roadmap (ver [especificação](especificacao/especificacao-mvp.m
 | RNF02 Sem build/dependências pesadas | Vanilla JS em ES Modules + Tailwind via CDN, zero pacotes npm |
 | RNF03 MP3 limpo, sem cortes no loop | overlap-add, normalização −1 dBFS, fades de borda |
 
-**Totais:** 94 testes pytest · 87 testes `node:test` · 39 verificações E2E em navegador real.
+**Totais:** 94 testes pytest · 89 testes `node:test` · 40 verificações E2E em navegador real.

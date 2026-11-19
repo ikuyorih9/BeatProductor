@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { DIVISIONS, METERS } from '../js/config.js';
-import { defaultSettings } from '../js/core/project.js';
+import { defaultSettings, sanitizeSettings } from '../js/core/project.js';
+import { divisionFitsMeter } from '../js/core/timing.js';
 import {
   formatBeats, formatPosition, parseBeats, parseNoteName, parsePosition, parseProjectFile, serializeProjectFile,
 } from '../js/core/project-file.js';
@@ -64,7 +65,7 @@ test('exportar e importar devolve EXATAMENTE o mesmo projeto, em qualquer compas
     const settings = {
       ...defaultSettings(),
       instrument: ['piano', 'drums', 'lofi', 'lead'][i % 4],
-      division: divisions[i % divisions.length],
+      division: [...divisions.slice(i % divisions.length), ...divisions].find((d) => divisionFitsMeter(d, meter)),
       meter,
       bpm: 73 + i,
       bars: 3 + i,
@@ -86,6 +87,16 @@ test('exportar e importar devolve EXATAMENTE o mesmo projeto, em qualquer compas
     assert.deepEqual(result.settings, settings, meter);
     assert.deepEqual(sortItems(result.items), sortItems(seq.toJSON()), meter);
   });
+});
+
+test('3/8: célula que não cabe é erro no arquivo e é corrigida no projeto salvo', () => {
+  const result = parseProjectFile('[projeto]\ncompasso = 3/8\ndivisao = 1/4\n');
+  assert.equal(result.ok, false);
+  assert.match(result.errors[0], /não cabe no compasso 3\/8/);
+  const ok = parseProjectFile('[projeto]\ncompasso = 3/8\ndivisao = 1/8\n[piano]\n2.3  C4  1+1/2\n');
+  assert.equal(ok.ok, true);
+  assert.deepEqual(ok.items[0], { instrument: 'piano', midi: 60, start: 18 + 12, duration: 9, kind: 'note' });
+  assert.equal(sanitizeSettings({ meter: '3/8', division: '1/4' }).division, '1/16');
 });
 
 test('o arquivo é legível: cabeçalho, volume e notas por instrumento', () => {

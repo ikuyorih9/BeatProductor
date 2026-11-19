@@ -4,9 +4,10 @@
  * Os controles escrevem na store; a store é a fonte da verdade e
  * re-sincroniza os controles (ex.: valor fora da faixa é corrigido no blur).
  */
-import { BARS, BPM, DIVISIONS, INSTRUMENTS, LOOPS, METERS, VOLUME } from '../config.js';
-import { toBoundedInt } from '../core/timing.js';
+import { BARS, BPM, DIVISIONS, FALLBACK_DIVISION, INSTRUMENTS, LOOPS, METERS, VOLUME } from '../config.js';
+import { divisionFitsMeter, toBoundedInt } from '../core/timing.js';
 import { byId, createElement } from './dom.js';
+import { showToast } from './toast.js';
 
 /** Liga um <input type=number> a uma chave numérica da store. */
 function bindNumberInput(input, store, key, { MIN, MAX }) {
@@ -106,7 +107,17 @@ export function initHeader(store, actions) {
   }
 
   instrumentSelect.addEventListener('change', () => store.set({ instrument: instrumentSelect.value }));
-  meterSelect.addEventListener('change', () => store.set({ meter: meterSelect.value }));
+  meterSelect.addEventListener('change', () => {
+    const meter = meterSelect.value;
+    const { division } = store.get();
+    if (divisionFitsMeter(division, meter)) {
+      store.set({ meter });
+      return;
+    }
+    // Ex.: semínima não cabe em 3/8 (1 semínima e meia): troca para colcheia.
+    store.set({ meter, division: FALLBACK_DIVISION });
+    showToast(`A célula ${division} não cabe no compasso ${meter}; mudei para ${DIVISIONS[FALLBACK_DIVISION].label}.`);
+  });
   divisionSelect.addEventListener('change', () => store.set({ division: divisionSelect.value }));
   loopCheckbox.addEventListener('change', () => store.set({ loop: loopCheckbox.checked }));
   bindNumberInput(bpmInput, store, 'bpm', BPM);
@@ -137,6 +148,9 @@ export function initHeader(store, actions) {
     // Faixa colorida = cor das notas do instrumento atual no grid.
     instrumentSelect.style.borderLeft = `6px solid ${colorOf[state.instrument]}`;
     meterSelect.value = state.meter;
+    for (const option of divisionSelect.options) {
+      option.disabled = !divisionFitsMeter(option.value, state.meter);
+    }
     divisionSelect.value = state.division;
     loopCheckbox.checked = state.loop;
     loopsInput.disabled = !state.loop;

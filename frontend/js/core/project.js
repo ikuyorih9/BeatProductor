@@ -11,7 +11,7 @@ import {
   BARS, BPM, DEFAULT_DIVISION, DEFAULT_INSTRUMENT, DEFAULT_METER, DIVISIONS, INSTRUMENT_IDS,
   LEGACY_DIVISIONS, LOOPS, METERS, VOLUME,
 } from '../config.js';
-import { toBoundedInt } from './timing.js';
+import { divisionFitsMeter, toBoundedInt } from './timing.js';
 
 export const PROJECT_VERSION = 2;
 
@@ -44,10 +44,13 @@ export function sanitizeVolumes(raw) {
 export function sanitizeSettings(raw) {
   const base = defaultSettings();
   if (!raw || typeof raw !== 'object') return base;
+  const meter = Object.hasOwn(METERS, raw.meter) ? raw.meter : base.meter;
+  const division = Object.hasOwn(DIVISIONS, raw.division) && divisionFitsMeter(raw.division, meter)
+    ? raw.division : base.division; // a padrão (1/16) cabe em todos os compassos
   return {
     instrument: INSTRUMENT_IDS.includes(raw.instrument) ? raw.instrument : base.instrument,
-    division: Object.hasOwn(DIVISIONS, raw.division) ? raw.division : base.division,
-    meter: Object.hasOwn(METERS, raw.meter) ? raw.meter : base.meter,
+    division,
+    meter,
     bpm: toBoundedInt(raw.bpm, BPM.MIN, BPM.MAX, base.bpm),
     bars: toBoundedInt(raw.bars, BARS.MIN, BARS.MAX, base.bars),
     loop: raw.loop === true,

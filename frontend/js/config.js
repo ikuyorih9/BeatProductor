@@ -29,16 +29,23 @@ export const LEGACY_DIVISIONS = Object.freeze({ '1/2': '1/8', '1/4': '1/16', '1/
 
 /**
  * Fórmulas de compasso. `beats` = tempos por compasso; `unit` = figura do tempo (4 = ♩, 8 = ♪).
- * Todas resultam em compassos com número inteiro de semínimas, então qualquer divisão encaixa.
+ * Compassos ímpares em x/8 (3/8, 5/8, 7/8, 9/8) não têm número inteiro de semínimas:
+ * neles só valem as células que encaixam no compasso (ver `divisionFitsMeter`).
  */
 export const METERS = Object.freeze({
   '2/4': { beats: 2, unit: 4 },
   '3/4': { beats: 3, unit: 4 },
   '4/4': { beats: 4, unit: 4 },
   '5/4': { beats: 5, unit: 4 },
+  '3/8': { beats: 3, unit: 8 },
+  '5/8': { beats: 5, unit: 8 },
   '6/8': { beats: 6, unit: 8 },
+  '7/8': { beats: 7, unit: 8 },
+  '9/8': { beats: 9, unit: 8 },
   '12/8': { beats: 12, unit: 8 },
 });
+/** Célula usada quando a atual não cabe no compasso escolhido (a colcheia cabe em todos). */
+export const FALLBACK_DIVISION = '1/8';
 export const DEFAULT_METER = '4/4';
 
 export const BPM = Object.freeze({ MIN: 40, MAX: 240, DEFAULT: 120 });

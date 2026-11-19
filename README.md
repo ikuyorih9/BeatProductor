@@ -51,8 +51,8 @@ Roda, em sequência: pytest (backend), `node:test` + verificação de sintaxe (f
 | Suíte | Quantidade |
 |---|---|
 | Backend (pytest) | 94 testes |
-| Frontend (`node:test`) | 87 testes |
-| E2E (Chrome/Edge headless) | 39 verificações |
+| Frontend (`node:test`) | 89 testes |
+| E2E (Chrome/Edge headless) | 40 verificações |
 
 ## Estrutura de diretórios
 

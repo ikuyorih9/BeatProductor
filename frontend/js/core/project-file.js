@@ -20,7 +20,7 @@ import {
 } from '../config.js';
 import { drumPieceForMidi, midiToName, NOTE_NAMES } from './music.js';
 import { defaultSettings } from './project.js';
-import { lengthInTicks, meterInfo } from './timing.js';
+import { divisionFitsMeter, lengthInTicks, meterInfo } from './timing.js';
 
 export const FILE_FORMAT_VERSION = 1;
 
@@ -267,6 +267,10 @@ export function parseProjectFile(text) {
         fail(lineNumber, error.message);
       }
     }
+  }
+
+  if (errors.length === 0 && !divisionFitsMeter(settings.division, settings.meter)) {
+    errors.push(`divisão ${settings.division} não cabe no compasso ${settings.meter} (use 1/8, 1/16 ou 1/16T)`);
   }
 
   // 2ª passada: as notas, com o compasso já conhecido.

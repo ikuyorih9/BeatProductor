@@ -51,6 +51,11 @@ export function ticksPerBar(meter = DEFAULT_METER) {
   return meterInfo(meter).barTicks;
 }
 
+/** A célula cabe um número inteiro de vezes no compasso? (ex.: semínima não cabe em 3/8) */
+export function divisionFitsMeter(division, meter) {
+  return ticksPerBar(meter) % ticksPerCell(division) === 0;
+}
+
 export function lengthInTicks(bars, meter = DEFAULT_METER) {
   return bars * ticksPerBar(meter);
 }

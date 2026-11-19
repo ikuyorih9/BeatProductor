@@ -498,6 +498,19 @@ await check('compasso 3/4: régua com 3 tempos, compasso de 36 ticks e posição
   assert.equal(await evaluate('window.__beatProductor.getLayout().barTicks'), 48);
 });
 
+await check('compasso 3/8: a semínima não cabe, a célula vira colcheia e a opção fica desabilitada', async () => {
+  await setControl('division-select', '1/4');
+  await setControl('meter-select', '3/8');
+  assert.equal(await evaluate('window.__beatProductor.store.get().division'), '1/8');
+  assert.equal(await evaluate('document.getElementById("division-select").value'), '1/8');
+  assert.equal(await evaluate('[...document.getElementById("division-select").options].find(o => o.value === "1/4").disabled'), true);
+  assert.equal(await evaluate('window.__beatProductor.getLayout().barTicks'), 18);
+  await waitFor('[...document.querySelectorAll(".toast")].some(t => t.textContent.includes("não cabe no compasso 3/8"))', 2000, 'aviso');
+  await setControl('meter-select', '4/4');
+  assert.equal(await evaluate('[...document.getElementById("division-select").options].find(o => o.value === "1/4").disabled'), false);
+  await setControl('division-select', '1/16');
+});
+
 await check('mixer: o slider muda o volume do instrumento', async () => {
   await setControl('volume-lead', 50);
   assert.equal(await evaluate('window.__beatProductor.store.get().volumes.lead'), 50);
