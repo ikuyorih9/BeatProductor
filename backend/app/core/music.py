@@ -6,17 +6,17 @@ Espelha frontend/js/core/music.js — as duas implementações precisam concorda
 import re
 
 NOTE_NAMES = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
-#: Kit de bateria: peça → tecla (MIDI). Só estas teclas valem na bateria (C3 a G3).
-#: Espelha DRUM_PIECES de frontend/js/config.js.
+#: Kit de bateria: tecla (MIDI) → peça. Só estas teclas valem na bateria: D4 a A4, no centro do
+#: grid (14 teclas desativadas acima e 14 abaixo). Espelha DRUM_PIECES de frontend/js/config.js.
 DRUM_KIT = {
-    48: "kick",       # C3  bumbo
-    49: "snare",      # C#3 caixa
-    50: "hihat",      # D3  chimbal
-    51: "floor_tom",  # D#3 surdo
-    52: "tom2",       # E3  tom 2
-    53: "tom1",       # F3  tom 1
-    54: "ride",       # F#3 ride
-    55: "crash",      # G3  prato de ataque
+    62: "kick",       # D4  bumbo
+    63: "snare",      # D#4 caixa
+    64: "hihat",      # E4  chimbal
+    65: "floor_tom",  # F4  surdo
+    66: "tom2",       # F#4 tom 2
+    67: "tom1",       # G4  tom 1
+    68: "ride",       # G#4 ride
+    69: "crash",      # A4  prato de ataque
 }
 DRUM_PIECES = tuple(DRUM_KIT.values())
 

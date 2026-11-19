@@ -125,8 +125,8 @@ def _noise(n: int, seed: int) -> np.ndarray:
 
 
 def _kick(sr: int) -> np.ndarray:
-    """Seno grave (160→50 Hz) + knock médio (330→110 Hz) + estalo do pedal — o knock e o estalo
-    fazem o bumbo ser ouvido mesmo em alto-falantes pequenos, que não reproduzem 50 Hz."""
+    """Seno grave (160→50 Hz) + knock médio (330→110 Hz): o knock faz o bumbo ser ouvido mesmo em
+    alto-falantes pequenos, que não reproduzem 50 Hz. Sem ruído (um estalo de ruído soava como chiado)."""
     n = int(0.47 * sr)
     t = _time(n, sr)
     freq = np.where(t < 0.12, 160.0 * (50.0 / 160.0) ** (t / 0.12), 50.0)
@@ -134,8 +134,7 @@ def _kick(sr: int) -> np.ndarray:
     body = np.sin(TWO_PI * _phase(freq, n, sr)) * env
     knock_freq = np.where(t < 0.04, 330.0 * (110.0 / 330.0) ** (t / 0.04), 110.0)
     knock = np.sin(TWO_PI * _phase(knock_freq, n, sr)) * _exp_decay(t, 0.3, 0.12)
-    click = _filter(_noise(n, 7), "highpass", 3000.0, sr) * _exp_decay(t, 0.18, 0.02)
-    return body + knock + click
+    return body + knock
 
 
 def _snare(sr: int) -> np.ndarray:
@@ -205,7 +204,7 @@ def _cymbal(sr: int, metal: float, metal_cutoff: float, noise: float, decay: flo
 
 
 def drums(midi: int, duration: float, sr: int = SAMPLE_RATE) -> np.ndarray:  # noqa: ARG001 (one-shot)
-    """Bateria one-shot: cada tecla do kit (C3 a G3) é uma peça; a duração é ignorada."""
+    """Bateria one-shot: cada tecla do kit (D4 a A4) é uma peça; a duração é ignorada."""
     piece = drum_piece_for_midi(midi)
     if piece == "kick":
         signal = _kick(sr)
@@ -218,7 +217,7 @@ def drums(midi: int, duration: float, sr: int = SAMPLE_RATE) -> np.ndarray:  # n
     elif piece in CYMBALS:
         signal = _cymbal(sr, **CYMBALS[piece], seed=5 if piece == "ride" else 6)
     else:
-        raise ValueError(f"A tecla MIDI {midi} não faz parte da bateria (use C3 a G3).")
+        raise ValueError(f"A tecla MIDI {midi} não faz parte da bateria (use D4 a A4).")
     return _fade_tail(signal.astype(np.float32), sr)
 
 

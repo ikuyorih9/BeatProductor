@@ -30,7 +30,7 @@ def test_tail_rings_after_end_without_hard_cut():
 
 
 def test_loops_multiply_length_and_repeat_identically():
-    events = [Event(0.0, "C3", 0.1, "drums"), Event(0.5, "C#3", 0.1, "drums"), Event(0.25, "E4", 0.5, "lead")]
+    events = [Event(0.0, "D4", 0.1, "drums"), Event(0.5, "D#4", 0.1, "drums"), Event(0.25, "E4", 0.5, "lead")]
     length = 1.0
     out = render_sequence(events, length, 4)
     assert len(out) >= 4 * SR
@@ -53,14 +53,14 @@ def test_loop_seam_is_continuous():
 
 def test_no_clipping_even_with_many_overlapping_notes():
     events = [Event(0.0, f"{name}4", 1.0, inst) for name in "CDEFGAB" for inst in ("piano", "lofi", "lead")]
-    events += [Event(0.0, "C3", 0.1, "drums")]
+    events += [Event(0.0, "D4", 0.1, "drums")]
     out = render_sequence(events, 1.0, 2)
     assert np.all(np.isfinite(out))
     assert float(np.max(np.abs(out))) == pytest.approx(TARGET_PEAK, rel=1e-3)
 
 
 def test_quiet_single_note_is_normalized_to_target():
-    out = render_sequence([Event(0.0, "D3", 0.05, "drums")], 1.0)  # hi-hat fechado
+    out = render_sequence([Event(0.0, "E4", 0.05, "drums")], 1.0)  # hi-hat fechado
     assert float(np.max(np.abs(out))) == pytest.approx(TARGET_PEAK, rel=1e-3)
 
 
@@ -71,7 +71,7 @@ def test_edges_fade_to_zero():
 
 
 def test_render_pass_reuses_identical_notes():
-    events = [Event(t / 10, "C3", 0.1, "drums") for t in range(10)]
+    events = [Event(t / 10, "D4", 0.1, "drums") for t in range(10)]
     buffer = render_pass(events, 1.0)
     assert len(buffer) >= SR
 
@@ -112,28 +112,42 @@ def test_instruments_are_calibrated_to_similar_loudness():
     assert max(levels.values()) - min(levels.values()) < 3.0, levels
 
 
-def _drum_level(note):
-    out = render_pass([Event(0.0, note, 0.1, "drums")], 0.5)
-    return 20 * np.log10(_rms(out[: int(0.15 * SR)]))
+def _drum_hit(note):
+    """Um golpe isolado, já com as calibrações (instrumento × peça) aplicadas."""
+    return render_pass([Event(0.0, note, 0.1, "drums")], 0.5).astype(np.float64)
 
 
-#: Quanto cada peça pode ficar abaixo do bumbo (dB, RMS dos primeiros 150 ms). Pratos são
-#: longos e agudos: com menos RMS no começo já soam presentes.
+def _short_term_db(signal):
+    """Intensidade de um golpe curto: o maior RMS numa janela de 50 ms."""
+    window = int(0.05 * SR)
+    energy = np.convolve(signal * signal, np.ones(window), "valid") / window
+    return 10 * np.log10(energy.max())
+
+
+#: Quanto cada peça fica abaixo do bumbo (dB, intensidade de curto prazo): (mínimo, máximo).
 DRUM_BALANCE = {
-    "C#3": ("caixa", 3), "D3": ("chimbal", 10), "D#3": ("surdo", 3), "E3": ("tom 2", 3),
-    "F3": ("tom 1", 3), "F#3": ("ride", 12), "G3": ("prato de ataque", 8),
+    "D#4": ("caixa", 2, 5), "E4": ("chimbal", 10, 14), "F4": ("surdo", 0, 2.5), "F#4": ("tom 2", 0, 2.5),
+    "G4": ("tom 1", 0, 2.5), "G#4": ("ride", 8, 12), "A4": ("prato de ataque", 2.5, 6),
 }
 
 
 def test_drum_pieces_are_balanced_against_the_kick():
-    """Nenhuma peça fica enterrada nem estoura em relação ao bumbo."""
-    kick = _drum_level("C3")
-    for note, (name, max_below) in DRUM_BALANCE.items():
-        level = _drum_level(note)
-        assert -3 < kick - level < max_below, (name, kick, level)
+    """Nenhuma peça fica enterrada nem passa do bumbo."""
+    kick = _short_term_db(_drum_hit("D4"))
+    for note, (name, low, high) in DRUM_BALANCE.items():
+        below = kick - _short_term_db(_drum_hit(note))
+        assert low <= below <= high, (name, below)
+
+
+def test_no_drum_piece_peaks_far_above_the_kick():
+    """O pico de cada peça fica até 1,25× o do bumbo: nenhuma domina a normalização do arquivo
+    (no navegador, o mesmo limite deixa a bateria abaixo do limitador, sem saturar)."""
+    kick = np.max(np.abs(_drum_hit("D4")))
+    for note, (name, _low, _high) in DRUM_BALANCE.items():
+        assert np.max(np.abs(_drum_hit(note))) <= 1.25 * kick, name
 
 
 def test_drums_at_200_percent_are_12_db_louder_in_the_mix():
-    base = render_pass([Event(0.0, "C#3", 0.1, "drums", 1.0)], 0.5)
-    loud = render_pass([Event(0.0, "C#3", 0.1, "drums", 4.0)], 0.5)
+    base = render_pass([Event(0.0, "D#4", 0.1, "drums", 1.0)], 0.5)
+    loud = render_pass([Event(0.0, "D#4", 0.1, "drums", 4.0)], 0.5)
     assert 20 * np.log10(_rms(loud) / _rms(base)) == pytest.approx(12.04, abs=0.01)

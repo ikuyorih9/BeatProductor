@@ -51,8 +51,8 @@ test('nomes de nota com sustenido, bemol, minúscula e peças da bateria', () =>
   assert.equal(parseNoteName('c#4', 'piano'), 61);
   assert.equal(parseNoteName('Db4', 'piano'), 61);
   assert.equal(parseNoteName('Bb3', 'piano'), 58);
-  assert.equal(parseNoteName('bumbo', 'drums'), 48);
-  assert.equal(parseNoteName('caixa', 'drums'), 49);
+  assert.equal(parseNoteName('bumbo', 'drums'), 62);
+  assert.equal(parseNoteName('caixa', 'drums'), 63);
   assert.throws(() => parseNoteName('bumbo', 'piano'), /inválida/);
   assert.throws(() => parseNoteName('H2', 'piano'), /inválida/);
 });
@@ -77,8 +77,8 @@ test('exportar e importar devolve EXATAMENTE o mesmo projeto, em qualquer compas
     seq.addNote({ instrument: 'piano', midi: 60, start: 0, duration: 12 });
     seq.addNote({ instrument: 'piano', midi: 61, start: 7, duration: 5 });
     seq.addRest({ instrument: 'piano', midi: 72, start: 40, duration: 2 });
-    seq.addNote({ instrument: 'drums', midi: 48, start: 0, duration: 3 });
-    seq.addNote({ instrument: 'drums', midi: 51, start: 33, duration: 3 });
+    seq.addNote({ instrument: 'drums', midi: 62, start: 0, duration: 3 });
+    seq.addNote({ instrument: 'drums', midi: 65, start: 33, duration: 3 });
     seq.addNote({ instrument: 'lofi', midi: 83, start: 100, duration: 70 });
     seq.addNote({ instrument: 'lead', midi: 48, start: 999, duration: 1 }); // além do grid: preservada
     const text = serializeProjectFile(settings, seq.toJSON());
@@ -104,13 +104,13 @@ test('o arquivo é legível: cabeçalho, volume e notas por instrumento', () => 
   seq.addNote({ instrument: 'piano', midi: 60, start: 0, duration: 12 });
   seq.addNote({ instrument: 'piano', midi: 64, start: 18, duration: 6 });
   seq.addRest({ instrument: 'piano', midi: 62, start: 48, duration: 24 });
-  seq.addNote({ instrument: 'drums', midi: 48, start: 0, duration: 3 });
+  seq.addNote({ instrument: 'drums', midi: 62, start: 0, duration: 3 });
   const text = serializeProjectFile(defaultSettings(), seq.toJSON());
-  assert.match(text, /\[projeto\]\nversao\s+= 2\nbpm\s+= 120/);
+  assert.match(text, /\[projeto\]\nversao\s+= 3\nbpm\s+= 120/);
   assert.match(text, /compasso\s+= 4\/4/);
   assert.match(text, /\[volume\][^\n]*\npiano\s+= 100/);
   assert.match(text, /\[piano\]\n# posição  nota  duração\n1\.1\s+C4\s+1\n1\.2\+1\/2\s+E4\s+1\/2\n2\.1\s+D4\s+2\s+pausa\n/);
-  assert.match(text, /\[bateria\]\n# posição  nota  duração\n1\.1\s+C3\s+1\/4\s+# bumbo/);
+  assert.match(text, /\[bateria\]\n# posição  nota  duração\n1\.1\s+D4\s+1\/4\s+# bumbo/);
   assert.doesNotMatch(text, /\[lofi\]/); // instrumento sem notas não aparece
 });
 
@@ -137,8 +137,8 @@ test('arquivo escrito à mão: comentários, acentos, campos faltando e forma cu
   assert.equal(result.settings.meter, '3/4');
   assert.equal(result.settings.bars, defaultSettings().bars); // faltou → padrão
   assert.deepEqual(sortItems(result.items), sortItems([
-    { instrument: 'drums', midi: 48, start: 0, duration: 3, kind: 'note' },
-    { instrument: 'drums', midi: 49, start: 12, duration: 3, kind: 'note' },
+    { instrument: 'drums', midi: 62, start: 0, duration: 3, kind: 'note' },
+    { instrument: 'drums', midi: 63, start: 12, duration: 3, kind: 'note' },
     { instrument: 'piano', midi: 63, start: 0, duration: 18, kind: 'note' },
     { instrument: 'piano', midi: 66, start: 24, duration: 12, kind: 'note' },
     { instrument: 'piano', midi: 60, start: 36, duration: 36, kind: 'rest' },

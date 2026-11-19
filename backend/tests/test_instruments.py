@@ -6,10 +6,10 @@ from app.core.config import SAMPLE_RATE
 from app.core.music import DRUM_KIT
 
 NOTES = [48, 60, 61, 62, 63, 71, 83]  # extremos da faixa e notas do meio
-DRUM_NOTES = list(DRUM_KIT)  # as 8 peças do kit (C3 a G3)
+DRUM_NOTES = list(DRUM_KIT)  # as 8 peças do kit (D4 a A4)
 CASES = [(i, m) for i in SYNTHS if i != "drums" for m in NOTES] + [("drums", m) for m in DRUM_NOTES]
 #: Uma nota válida de cada instrumento (a bateria só aceita as teclas do kit).
-SAMPLE_NOTE = {"piano": 60, "drums": 48, "lofi": 60, "lead": 60}
+SAMPLE_NOTE = {"piano": 60, "drums": 62, "lofi": 60, "lead": 60}
 
 
 @pytest.mark.parametrize("instrument,midi", CASES)
@@ -45,7 +45,7 @@ def test_every_drum_piece_ends_in_silence(midi):
 
 
 def test_drums_are_one_shot():
-    assert len(render_note("drums", 48, 0.1)) == len(render_note("drums", 48, 3.0))
+    assert len(render_note("drums", 62, 0.1)) == len(render_note("drums", 62, 3.0))
 
 
 def test_the_8_drum_pieces_are_all_different():
@@ -62,7 +62,7 @@ def test_cymbals_ring_longer_than_drums_and_toms_are_tuned_low_to_high():
     assert TOMS["floor_tom"]["end"] < TOMS["tom2"]["end"] < TOMS["tom1"]["end"]
 
 
-@pytest.mark.parametrize("midi", [47, 56, 60, 83])
+@pytest.mark.parametrize("midi", [48, 55, 61, 70, 83])
 def test_drum_note_outside_the_kit_is_rejected(midi):
     with pytest.raises(ValueError, match="não faz parte da bateria"):
         render_note("drums", midi, 0.1)

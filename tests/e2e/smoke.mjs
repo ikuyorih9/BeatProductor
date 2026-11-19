@@ -212,25 +212,34 @@ await check('troca de instrumento: bateria mostra peças e notas do piano ficam 
   await setControl('instrument-select', 'drums');
   assert.equal(await evaluate('document.querySelectorAll(".note-other").length'), 2);
   assert.equal(await evaluate('document.querySelectorAll(".note-own").length'), 0);
-  const labels = await evaluate('[...document.querySelectorAll("#piano-keys .key")].slice(-8).map(k => k.textContent)');
+  const labels = await evaluate('[...document.querySelectorAll("#piano-keys .key")].slice(14, 22).map(k => k.textContent)');
   assert.deepEqual(labels, ['Prato de ataque', 'Ride', 'Tom 1', 'Tom 2', 'Surdo', 'Chimbal', 'Caixa', 'Bumbo']);
-  const p = await cellPoint(35, 0);
+  const p = await cellPoint(21, 0); // bumbo (D4)
   await click(p.x, p.y);
   await waitFor(`${notesOf('drums')}.length === 1`, 2000, 'nota de bateria');
 });
 
-await check('bateria: só as 8 teclas do kit (C3–G3) ficam ativas; as outras não tocam nem recebem notas', async () => {
+await check('bateria: só as 8 teclas do kit (D4–A4, no centro) ficam ativas; as outras não tocam nem recebem notas', async () => {
   assert.equal(await evaluate('document.querySelectorAll("#piano-keys .key-disabled").length'), 28);
   assert.equal(await evaluate('document.querySelectorAll(".grid-row.is-disabled").length'), 28);
-  assert.equal(await evaluate('[...document.querySelectorAll(".grid-row.is-disabled")].every(r => Number(r.dataset.midi) > 55)'), true);
-  const kitTop = await evaluate('document.querySelectorAll(".grid-row")[28].getBoundingClientRect().top');
-  const scroller = await evaluate('document.getElementById("roll-scroll").getBoundingClientRect().bottom');
-  assert.ok(kitTop < scroller, 'ao escolher a bateria, o kit aparece na tela');
-  const p = await cellPoint(10, 3);
+  const enabled = await evaluate('[...document.querySelectorAll(".grid-row:not(.is-disabled)")].map(r => Number(r.dataset.midi))');
+  assert.deepEqual(enabled, [69, 68, 67, 66, 65, 64, 63, 62]);
+  // Ao escolher a bateria, o kit aparece no meio da área visível.
+  const view = await evaluate(`(() => {
+    const rows = document.querySelectorAll('.grid-row');
+    const top = rows[14].getBoundingClientRect().top;
+    const bottom = rows[21].getBoundingClientRect().bottom;
+    const box = document.getElementById('roll-scroll').getBoundingClientRect();
+    return { top, bottom, boxTop: box.top + 24, boxBottom: box.bottom };
+  })()`);
+  assert.ok(view.top >= view.boxTop && view.bottom <= view.boxBottom, `kit fora da tela: ${JSON.stringify(view)}`);
+  const middle = (view.top + view.bottom) / 2 - (view.boxTop + view.boxBottom) / 2;
+  assert.ok(Math.abs(middle) <= 30, `kit não centralizado (${middle}px)`);
+  const p = await cellPoint(5, 3);
   await click(p.x, p.y); // linha desativada: nada acontece
   await rightClick(p.x, p.y);
-  const a = await cellPoint(20, 5);
-  const b = await cellPoint(20, 8);
+  const a = await cellPoint(30, 5);
+  const b = await cellPoint(30, 8);
   await drag(a.x, a.y, b.x, b.y);
   await sleep(150);
   assert.equal(await evaluate(`${notesOf('drums')}.length`), 1, 'nenhuma nota/pausa em tecla desativada');
@@ -342,7 +351,7 @@ await check('com loop, recomeça no fim da última nota', async () => {
 });
 
 await check('botão direito numa célula vazia cria PAUSA (bloco branco) que estende o fim', async () => {
-  const p = await cellPoint(29, 15); // tick 45–48: pausa até o fim do 1º compasso
+  const p = await cellPoint(15, 15); // tick 45–48: pausa até o fim do 1º compasso
   await rightClick(p.x, p.y);
   await waitFor(`${notesOf('drums')}.some(n => n.kind === 'rest')`, 2000, 'pausa criada');
   const rest = await evaluate(`${notesOf('drums')}.find(n => n.kind === 'rest')`);
@@ -370,7 +379,7 @@ await check('a pausa faz o loop durar até ela (silêncio antes de recomeçar)',
 });
 
 await check('botão direito na pausa apaga', async () => {
-  const p = await cellPoint(29, 15);
+  const p = await cellPoint(15, 15);
   await rightClick(p.x, p.y);
   await waitFor(`!${notesOf('drums')}.some(n => n.kind === 'rest')`, 2000, 'pausa apagada');
   assert.equal(await evaluate(END), 24);
@@ -378,18 +387,18 @@ await check('botão direito na pausa apaga', async () => {
 
 await check('Selecionar (retângulo) + UNIR juntam células numa nota longa', async () => {
   for (const cell of [0, 1, 2, 3]) {
-    const p = await cellPoint(31, cell);
+    const p = await cellPoint(17, cell);
     await click(p.x, p.y);
   }
-  const row = `${notesOf('drums')}.filter(n => n.midi === window.__beatProductor.range[31])`;
+  const row = `${notesOf('drums')}.filter(n => n.midi === window.__beatProductor.range[17])`;
   await waitFor(`${row}.length === 4`, 2000, '4 notas');
   assert.equal(await evaluate('document.getElementById("merge-button").disabled'), true);
 
   await clickElement('#tool-select');
   assert.equal(await evaluate('window.__beatProductor.store.get().tool'), 'select');
   assert.ok(await evaluate('document.getElementById("tool-select").classList.contains("is-active")'));
-  const a = await cellPoint(30, 0);
-  const b = await cellPoint(32, 3);
+  const a = await cellPoint(16, 0);
+  const b = await cellPoint(18, 3);
   await drag(a.x - 8, a.y, b.x, b.y); // retângulo cobrindo as 4 notas (linhas 30–32)
   await waitFor('document.querySelectorAll(".note.is-selected").length === 4', 2000, '4 selecionadas');
   assert.equal(await evaluate('document.getElementById("merge-button").disabled'), false);
@@ -403,9 +412,9 @@ await check('Selecionar (retângulo) + UNIR juntam células numa nota longa', as
 });
 
 await check('no modo Selecionar, clicar numa nota NÃO apaga; Esc limpa a seleção', async () => {
-  const p = await cellPoint(31, 1);
+  const p = await cellPoint(17, 1);
   await click(p.x, p.y);
-  const row = `${notesOf('drums')}.filter(n => n.midi === window.__beatProductor.range[31])`;
+  const row = `${notesOf('drums')}.filter(n => n.midi === window.__beatProductor.range[17])`;
   assert.equal(await evaluate(`${row}.length`), 1);
   await waitFor('document.querySelectorAll(".note.is-selected").length === 1', 2000, 'selecionada');
   await pressKey('Escape', 'Escape', 27);
@@ -413,11 +422,11 @@ await check('no modo Selecionar, clicar numa nota NÃO apaga; Esc limpa a seleç
 });
 
 await check('Delete apaga a seleção', async () => {
-  const p = await cellPoint(31, 1);
+  const p = await cellPoint(17, 1);
   await click(p.x, p.y);
   await waitFor('document.querySelectorAll(".note.is-selected").length === 1', 2000, 'selecionada');
   await pressKey('Delete', 'Delete', 46);
-  const row = `${notesOf('drums')}.filter(n => n.midi === window.__beatProductor.range[31])`;
+  const row = `${notesOf('drums')}.filter(n => n.midi === window.__beatProductor.range[17])`;
   await waitFor(`${row}.length === 0`, 2000, 'nota apagada');
   await clickElement('#tool-draw');
   assert.equal(await evaluate('window.__beatProductor.store.get().tool'), 'draw');
@@ -429,68 +438,68 @@ const CTRL = 2;
 
 await check('lixeira só fica ativa com seleção e apaga as notas selecionadas', async () => {
   for (const cell of [0, 1]) {
-    const p = await cellPoint(31, cell);
+    const p = await cellPoint(17, cell);
     await click(p.x, p.y);
   }
-  await waitFor(`${rowNotes(31)}.length === 2`, 2000, '2 notas');
+  await waitFor(`${rowNotes(17)}.length === 2`, 2000, '2 notas');
   assert.equal(await evaluate('document.getElementById("delete-button").disabled'), true);
   await clickElement('#tool-select');
-  const a = await cellPoint(30, 0);
-  const b = await cellPoint(32, 1);
+  const a = await cellPoint(16, 0);
+  const b = await cellPoint(18, 1);
   await drag(a.x - 8, a.y, b.x, b.y);
   await waitFor(`${SELECTED} === 2`, 2000, '2 selecionadas');
   assert.equal(await evaluate('document.getElementById("delete-button").disabled'), false);
   await clickElement('#delete-button');
-  await waitFor(`${rowNotes(31)}.length === 0`, 2000, 'apagadas pela lixeira');
+  await waitFor(`${rowNotes(17)}.length === 0`, 2000, 'apagadas pela lixeira');
   assert.equal(await evaluate('document.getElementById("delete-button").disabled'), true);
 });
 
 await check('arrastar a seleção para baixo/cima e para os lados move as notas', async () => {
   await clickElement('#tool-draw');
-  const p = await cellPoint(31, 2);
+  const p = await cellPoint(17, 2);
   await click(p.x, p.y);
-  await waitFor(`${rowNotes(31)}.length === 1`, 2000, 'nota criada');
-  const id = await evaluate(`${rowNotes(31)}[0].id`);
+  await waitFor(`${rowNotes(17)}.length === 1`, 2000, 'nota criada');
+  const id = await evaluate(`${rowNotes(17)}[0].id`);
   await clickElement('#tool-select');
-  const q = await cellPoint(31, 2);
+  const q = await cellPoint(17, 2);
   await drag(q.x, q.y, q.x, q.y + 44); // 2 linhas para baixo
-  await waitFor(`${rowNotes(33)}.length === 1`, 2000, 'desceu 2 linhas');
+  await waitFor(`${rowNotes(19)}.length === 1`, 2000, 'desceu 2 linhas');
   assert.equal(await evaluate(`window.__beatProductor.sequence.getNote(${id}).start`), 6, 'o tempo não muda');
-  const r = await cellPoint(33, 2);
+  const r = await cellPoint(19, 2);
   const w = await evaluate('window.__beatProductor.getLayout().cellWidth');
   await drag(r.x, r.y, r.x + w, r.y - 22); // 1 célula à direita e 1 linha para cima
   await waitFor(`window.__beatProductor.sequence.getNote(${id}).start === 9`, 2000, 'andou 1 célula');
-  assert.equal(await evaluate(`window.__beatProductor.sequence.getNote(${id}).midi`), await evaluate('window.__beatProductor.range[32]'));
+  assert.equal(await evaluate(`window.__beatProductor.sequence.getNote(${id}).midi`), await evaluate('window.__beatProductor.range[18]'));
   assert.equal(await evaluate(SELECTED), 1, 'continua selecionada');
 });
 
 await check('setas movem a seleção (↑ = semitom acima, ← = 1 célula)', async () => {
   const id = await evaluate('window.__beatProductor.grid.getSelection()[0]');
   await pressKey('ArrowUp', 'ArrowUp', 38);
-  await waitFor(`window.__beatProductor.sequence.getNote(${id}).midi === window.__beatProductor.range[31]`, 2000, 'subiu');
+  await waitFor(`window.__beatProductor.sequence.getNote(${id}).midi === window.__beatProductor.range[17]`, 2000, 'subiu');
   await pressKey('ArrowLeft', 'ArrowLeft', 37);
   await waitFor(`window.__beatProductor.sequence.getNote(${id}).start === 6`, 2000, 'voltou 1 célula');
   // Para cima, a seleção para no prato de ataque (G3): não sai do kit.
   for (let i = 0; i < 6; i += 1) await pressKey('ArrowUp', 'ArrowUp', 38);
-  await waitFor(`window.__beatProductor.sequence.getNote(${id}).midi === 55`, 2000, 'parou no topo do kit');
-  const q = await cellPoint(28, 2);
+  await waitFor(`window.__beatProductor.sequence.getNote(${id}).midi === 69`, 2000, 'parou no topo do kit');
+  const q = await cellPoint(14, 2);
   await drag(q.x, q.y, q.x, q.y - 22 * 5); // arrastar para fora do kit também é limitado
   await sleep(150);
-  assert.equal(await evaluate(`window.__beatProductor.sequence.getNote(${id}).midi`), 55);
+  assert.equal(await evaluate(`window.__beatProductor.sequence.getNote(${id}).midi`), 69);
   for (let i = 0; i < 3; i += 1) await pressKey('ArrowDown', 'ArrowDown', 40);
-  await waitFor(`window.__beatProductor.sequence.getNote(${id}).midi === 52`, 2000, 'voltou para a linha 31');
+  await waitFor(`window.__beatProductor.sequence.getNote(${id}).midi === 66`, 2000, 'voltou para a linha 17');
 });
 
 await check('Ctrl+C / Ctrl+V colam no cursor, encadeiam e funcionam entre instrumentos', async () => {
   await pressKey('KeyC', 'c', 67, CTRL);
   await evaluate('window.__beatProductor.transport.seek(48)');
   await pressKey('KeyV', 'v', 86, CTRL);
-  await waitFor(`${rowNotes(31)}.length === 2`, 2000, '1ª colagem');
+  await waitFor(`${rowNotes(17)}.length === 2`, 2000, '1ª colagem');
   // a cópia começa no tempo 0 (nota no tick 6): colada em 48 + 6
-  assert.ok(await evaluate(`${rowNotes(31)}.some(n => n.start === 54)`));
+  assert.ok(await evaluate(`${rowNotes(17)}.some(n => n.start === 54)`));
   assert.equal(await evaluate('window.__beatProductor.transport.tick'), 60, 'cursor avança 1 tempo');
   await pressKey('KeyV', 'v', 86, CTRL);
-  await waitFor(`${rowNotes(31)}.some(n => n.start === 66)`, 2000, '2ª colagem em seguida');
+  await waitFor(`${rowNotes(17)}.some(n => n.start === 66)`, 2000, '2ª colagem em seguida');
   assert.equal(await evaluate(SELECTED), 1, 'o que foi colado fica selecionado');
 
   await setControl('instrument-select', 'lead');
@@ -501,19 +510,19 @@ await check('Ctrl+C / Ctrl+V colam no cursor, encadeiam e funcionam entre instru
 
 await check('SEPARAR divide uma nota unida em células', async () => {
   await clickElement('#tool-draw');
-  const a = await cellPoint(29, 0);
-  const b = await cellPoint(29, 3);
+  const a = await cellPoint(15, 0);
+  const b = await cellPoint(15, 3);
   await drag(a.x, a.y, b.x, b.y);
-  await waitFor(`${rowNotes(29)}.length === 1 && ${rowNotes(29)}[0].duration === 12`, 2000, 'nota longa');
+  await waitFor(`${rowNotes(15)}.length === 1 && ${rowNotes(15)}[0].duration === 12`, 2000, 'nota longa');
   assert.equal(await evaluate('document.getElementById("split-button").disabled'), true);
   await clickElement('#tool-select');
-  const p = await cellPoint(29, 1);
+  const p = await cellPoint(15, 1);
   await click(p.x, p.y);
   await waitFor(`${SELECTED} === 1`, 2000, 'selecionada');
   assert.equal(await evaluate('document.getElementById("split-button").disabled'), false);
   assert.equal(await evaluate('document.getElementById("split-button").textContent'), 'SEPARAR (1)');
   await clickElement('#split-button');
-  await waitFor(`${rowNotes(29)}.length === 4`, 2000, 'separada em 4');
+  await waitFor(`${rowNotes(15)}.length === 4`, 2000, 'separada em 4');
   assert.equal(await evaluate(SELECTED), 4);
   assert.equal(await evaluate('document.getElementById("split-button").disabled'), true);
   await pressKey('Escape', 'Escape', 27);
@@ -571,7 +580,7 @@ if (await evaluate('typeof window.__beatProductor.audio === "object"')) {
       const { INSTRUMENT_FACTORIES } = await import('./js/audio/instruments.js');
       const out = {};
       for (const [name, factory] of Object.entries(INSTRUMENT_FACTORIES)) {
-        const notes = name === 'drums' ? [48, 49, 50, 51, 52, 53, 54, 55] : [48, 61, 62, 63, 83];
+        const notes = name === 'drums' ? [62, 63, 64, 65, 66, 67, 68, 69] : [48, 61, 62, 63, 83];
         for (const midi of notes) {
           const ctx = new OfflineAudioContext(1, 44100 * 2, 44100);
           const noise = ctx.createBuffer(1, 44100 * 2, 44100);
@@ -593,82 +602,107 @@ if (await evaluate('typeof window.__beatProductor.audio === "object"')) {
     }
   });
 
-  await check('áudio: cadeia de saída real — 8 peças equilibradas, bateria não fica abaixo do piano, nunca acima de 0 dBFS', async () => {
+  await check('áudio: cadeia de saída real — bateria LIMPA (sem saturar) no 100%, 8 peças equilibradas, nunca acima de 0 dBFS', async () => {
     const result = await evaluate(`(async () => {
       const { INSTRUMENT_FACTORIES } = await import('./js/audio/instruments.js');
       const { createOutputChain } = await import('./js/audio/engine.js');
-      const { INSTRUMENT_TRIM } = await import('./js/config.js');
+      const { INSTRUMENT_TRIM, DRUM_PIECES } = await import('./js/config.js');
       const { drumPieceForMidi } = await import('./js/core/music.js');
       const { volumeToGain } = await import('./js/core/volume.js');
       const sr = 44100;
-      async function render(notes, volumes, seconds) {
-        const ctx = new OfflineAudioContext(1, sr * seconds, sr);
+      const noiseData = new Float32Array(sr * 2).map(() => Math.random() * 2 - 1);
+      // noClip: a mesma cadeia sem o limitador suave (referência para medir a saturação que ele causa).
+      // Tudo começa em T0: o compressor do Chrome atenua os primeiros instantes depois de criado, o que
+      // não acontece no app (lá ele já está rodando) e falsearia a medição.
+      const T0 = 0.5;
+      async function render(notes, volumes, seconds, noClip = false) {
+        const ctx = new OfflineAudioContext(1, Math.round(sr * (seconds + T0)), sr);
         const noise = ctx.createBuffer(1, sr * 2, sr);
-        noise.getChannelData(0).forEach((_, i, a) => { a[i] = Math.random() * 2 - 1; });
-        const { master } = createOutputChain(ctx);
+        noise.copyToChannel(noiseData, 0);
+        const chain = createOutputChain(ctx);
+        if (noClip) chain.clipper.curve = null;
         const buses = {};
         for (const n of notes) {
           if (!buses[n.i]) {
             buses[n.i] = ctx.createGain();
             buses[n.i].gain.value = INSTRUMENT_TRIM[n.i] * volumeToGain(volumes[n.i] ?? 100);
-            buses[n.i].connect(master);
+            buses[n.i].connect(chain.master);
           }
-          const voice = INSTRUMENT_FACTORIES[n.i](ctx, { midi: n.m, when: n.t, duration: n.d }, { noiseBuffer: noise });
+          const voice = INSTRUMENT_FACTORIES[n.i](ctx, { midi: n.m, when: T0 + n.t, duration: n.d }, { noiseBuffer: noise });
           const trim = ctx.createGain();
           if (n.i === 'drums') trim.gain.value = drumPieceForMidi(n.m).trim;
           voice.output.connect(trim).connect(buses[n.i]);
-          voice.sources.forEach((s) => { s.start(n.t); s.stop(voice.endTime); });
+          voice.sources.forEach((s) => { s.start(T0 + n.t); s.stop(voice.endTime); });
         }
-        return (await ctx.startRendering()).getChannelData(0);
+        return (await ctx.startRendering()).getChannelData(0).subarray(Math.round(sr * T0));
       }
       const db = (x) => 20 * Math.log10(x);
       const rms = (d, n) => { let e = 0; for (let i = 0; i < n; i += 1) e += d[i] * d[i]; return Math.sqrt(e / n); };
       const peak = (d) => d.reduce((p, v) => Math.max(p, Math.abs(v)), 0);
+      // Intensidade de um golpe curto: maior RMS numa janela de 50 ms.
+      const shortTerm = (d) => {
+        const w = Math.round(0.05 * sr); let e = 0, best = 0;
+        for (let i = 0; i < d.length; i += 1) { e += d[i] * d[i]; if (i >= w) e -= d[i - w] * d[i - w]; best = Math.max(best, e); }
+        return 10 * Math.log10(best / w);
+      };
+      // Saturação = o que o limitador suave mudou no sinal (dB em relação ao sinal).
+      const saturation = (withClip, without) => {
+        let e = 0, s = 0;
+        for (let i = 0; i < withClip.length; i += 1) { e += (withClip[i] - without[i]) ** 2; s += without[i] ** 2; }
+        return e === 0 ? -200 : 10 * Math.log10(e / s);
+      };
+      const [KICK, SNARE, HAT] = DRUM_PIECES.map((p) => p.midi);
       const pieces = {};
-      for (let m = 48; m <= 55; m += 1) pieces[m] = db(rms(await render([{ i: 'drums', m, t: 0, d: 0.1 }], {}, 0.5), 6615));
+      for (const p of DRUM_PIECES) {
+        const hit = [{ i: 'drums', m: p.midi, t: 0, d: 0.1 }];
+        const out = await render(hit, {}, 2);
+        pieces[p.id] = { level: shortTerm(out), saturation: saturation(out, await render(hit, {}, 2, true)) };
+      }
       const beat = [];
       for (let s = 0; s < 32; s += 1) {
         const t = s * 0.125;
-        beat.push({ i: 'drums', m: 50, t, d: 0.1 });
-        if (s % 8 === 0) beat.push({ i: 'drums', m: 48, t, d: 0.1 });
-        if (s % 8 === 4) beat.push({ i: 'drums', m: 49, t, d: 0.1 });
+        beat.push({ i: 'drums', m: HAT, t, d: 0.1 });
+        if (s % 8 === 0) beat.push({ i: 'drums', m: KICK, t, d: 0.1 });
+        if (s % 8 === 4) beat.push({ i: 'drums', m: SNARE, t, d: 0.1 });
       }
       const drumsOnly = [...beat];
-      const chords = [];
-      for (let k = 0; k < 8; k += 1) for (const m of [60, 64, 67]) chords.push({ i: 'piano', m, t: k * 0.5, d: 0.45 });
-      beat.push({ i: 'drums', m: 55, t: 0, d: 0.1 }, { i: 'drums', m: 51, t: 3.5, d: 0.1 }, { i: 'drums', m: 54, t: 2, d: 0.1 });
-      for (const m of [60, 64, 67]) beat.push({ i: 'piano', m, t: 0, d: 2 });
-      for (const m of [48, 55]) beat.push({ i: 'lofi', m, t: 0, d: 4 });
-      for (let k = 0; k < 8; k += 1) beat.push({ i: 'lead', m: 72 + (k % 3) * 2, t: k * 0.5, d: 0.4 });
+      const beat100 = await render(drumsOnly, {}, 4.5);
+      const full = [...beat];
+      for (const m of [60, 64, 67]) full.push({ i: 'piano', m, t: 0, d: 2 });
+      for (const m of [48, 55]) full.push({ i: 'lofi', m, t: 0, d: 4 });
+      for (let k = 0; k < 8; k += 1) full.push({ i: 'lead', m: 72 + (k % 3) * 2, t: k * 0.5, d: 0.4 });
       const all200 = { piano: 200, drums: 200, lofi: 200, lead: 200 };
       return {
         pieces,
-        peakAll200: peak(await render(beat, all200, 4.5)),
-        peak100: peak(await render(beat, {}, 4.5)),
+        beatSaturation: saturation(beat100, await render(drumsOnly, {}, 4.5, true)),
+        peakAll200: peak(await render(full, all200, 4.5)),
+        peak100: peak(await render(full, {}, 4.5)),
         drums50: db(rms(await render(drumsOnly, { drums: 50 }, 4.5), sr * 4)),
-        drums100: db(rms(await render(drumsOnly, { drums: 100 }, 4.5), sr * 4)),
+        drums100: db(rms(beat100, sr * 4)),
         drums200: db(rms(await render(drumsOnly, { drums: 200 }, 4.5), sr * 4)),
-        piano100: db(rms(await render(chords, {}, 4.5), sr * 4)),
       };
     })()`);
     const { pieces } = result;
     const info = JSON.stringify(result);
-    // Quanto cada peça pode ficar abaixo do bumbo (RMS dos primeiros 150 ms; pratos são longos e agudos).
-    const maxBelow = { 49: 3, 50: 10, 51: 3, 52: 3, 53: 3, 54: 12, 55: 8 };
-    for (const [m, limit] of Object.entries(maxBelow)) {
-      const below = pieces[48] - pieces[m];
-      assert.ok(below > -3 && below < limit, `peça ${m} fora do equilíbrio (${below.toFixed(1)} dB): ${info}`);
+    for (const [id, piece] of Object.entries(pieces)) {
+      assert.ok(piece.saturation < -60, `${id} satura no 100% (${piece.saturation.toFixed(1)} dB): ${info}`);
+    }
+    // Bumbo + chimbal + caixa juntos: o compressor segura os picos; o limitador quase não atua.
+    assert.ok(result.beatSaturation < -45, `beat satura no 100% (${result.beatSaturation.toFixed(1)} dB): ${info}`);
+    // Quanto cada peça fica abaixo do bumbo (intensidade de curto prazo): [mínimo, máximo] em dB.
+    const balance = { snare: [2, 5.5], hihat: [10, 14], floor_tom: [0, 2.5], tom2: [0, 2.5], tom1: [0, 2.5], ride: [8, 12], crash: [2.5, 6] };
+    for (const [id, [low, high]] of Object.entries(balance)) {
+      const below = pieces.kick.level - pieces[id].level;
+      assert.ok(below >= low && below <= high, `${id} fora do equilíbrio (${below.toFixed(1)} dB abaixo do bumbo): ${info}`);
     }
     assert.ok(result.peakAll200 < 1 && result.peak100 < 1, `pico acima de 0 dBFS: ${info}`);
-    assert.ok(result.drums100 >= result.piano100, `bateria no 100% abaixo do piano: ${info}`);
-    // O limitador segura os picos, então o ganho em RMS é menor que os ±12 dB do slider.
-    assert.ok(result.drums200 - result.drums100 > 3.5, `200% deveria reforçar: ${info}`);
+    assert.ok(result.drums200 - result.drums100 > 4, `200% deveria reforçar: ${info}`);
     assert.ok(result.drums100 - result.drums50 > 7, `50% deveria atenuar bem: ${info}`);
   });
 
   await check('áudio: clicar numa tecla toca a pré-escuta', async () => {
     const before = await evaluate('window.__beatProductor.audio.stats.previews');
-    await clickElement('#piano-keys .key:nth-child(34)'); // chimbal (a bateria está selecionada)
+    await clickElement('#piano-keys .key:nth-child(20)'); // chimbal, E4 (a bateria está selecionada)
     await waitFor(`window.__beatProductor.audio.stats.previews > ${before}`, 2000, 'pré-escuta');
   });
 }

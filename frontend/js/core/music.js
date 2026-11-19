@@ -67,9 +67,9 @@ export function isPlayable(instrument, midi) {
 }
 
 /**
- * Bateria antiga (até a v2 do projeto salvo / v1 do arquivo de texto): 4 peças repetidas em
- * todas as teclas pela classe de altura % 4 (C bumbo, C# caixa, D chimbal fechado, D# chimbal
- * aberto, E bumbo…). Devolve a tecla da mesma peça no kit atual.
+ * Bateria de 4 peças (projeto salvo até a v2 / arquivo de texto v1): as peças se repetiam em todas
+ * as teclas pela classe de altura % 4 (C bumbo, C# caixa, D chimbal fechado, D# chimbal aberto,
+ * E bumbo…). Devolve a tecla da mesma peça no kit atual.
  */
 const LEGACY_DRUM_ORDER = Object.freeze(['kick', 'snare', 'hihat', 'hihat']);
 export function migrateLegacyDrumMidi(midi) {
@@ -77,17 +77,27 @@ export function migrateLegacyDrumMidi(midi) {
 }
 
 /**
- * Migra os itens de bateria de um projeto antigo para o kit atual. Peças que caem na mesma
- * tecla (ex.: bumbo em C3 e em E3 no mesmo tempo) não se sobrepõem: a anterior é encurtada
- * até o início da seguinte, e itens no mesmo instante viram um só (nota vence pausa).
+ * Kit de 8 peças embaixo do grid, C3 a G3 (projeto salvo v3 / arquivo de texto v2). Devolve a
+ * tecla da mesma peça no kit atual (centralizado); tecla fora daquele kit fica como está.
+ */
+export const BOTTOM_KIT_LOWEST_MIDI = 48;
+export function migrateBottomKitMidi(midi) {
+  const index = midi - BOTTOM_KIT_LOWEST_MIDI;
+  return index >= 0 && index < DRUM_PIECES.length ? DRUM_PIECES[index].midi : midi;
+}
+
+/**
+ * Converte as notas de bateria de um projeto antigo com `mapMidi` e evita sobreposições: peças que
+ * caem na mesma tecla (ex.: bumbo em C3 e em E3 no mesmo tempo) não se sobrepõem — a anterior é
+ * encurtada até o início da seguinte, e itens no mesmo instante viram um só (nota vence pausa).
  * Itens de outros instrumentos passam intactos.
  */
-export function migrateLegacyDrumItems(items) {
+export function migrateDrumItems(items, mapMidi) {
   const others = [];
   const drums = [];
   for (const item of items) {
     if (item && item.instrument === 'drums' && Number.isInteger(item.midi)) {
-      drums.push({ ...item, midi: migrateLegacyDrumMidi(item.midi) });
+      drums.push({ ...item, midi: mapMidi(item.midi) });
     } else {
       others.push(item);
     }
@@ -103,4 +113,9 @@ export function migrateLegacyDrumItems(items) {
     kept.push(item);
   }
   return [...others, ...kept];
+}
+
+/** Bateria de 4 peças → kit atual. */
+export function migrateLegacyDrumItems(items) {
+  return migrateDrumItems(items, migrateLegacyDrumMidi);
 }

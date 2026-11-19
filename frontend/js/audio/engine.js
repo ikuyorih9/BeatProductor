@@ -18,13 +18,17 @@ const MAX_VOICES = 96;
 const FADE_SECONDS = 0.02;
 export const MASTER_GAIN = 0.45;
 
-/** Curva do limitador suave: linear até 0,7; acima, satura suavemente até 0,98 (≈ −0,2 dBFS). */
+/**
+ * Curva do limitador suave: linear até 0,9; acima, satura suavemente até 0,98 (≈ −0,2 dBFS).
+ * O joelho fica acima do limiar do compressor (−2 dBFS ≈ 0,79): quem segura os picos primeiro é o
+ * compressor (sem distorção); a saturação é só a última proteção contra estouro.
+ */
 function softClipCurve(points = 4097) {
   const curve = new Float32Array(points);
   for (let i = 0; i < points; i += 1) {
     const x = (i / (points - 1)) * 2 - 1;
     const a = Math.abs(x);
-    curve[i] = Math.sign(x) * (a <= 0.7 ? a : 0.7 + 0.28 * Math.tanh((a - 0.7) / 0.28));
+    curve[i] = Math.sign(x) * (a <= 0.9 ? a : 0.9 + 0.08 * Math.tanh((a - 0.9) / 0.08));
   }
   return curve;
 }

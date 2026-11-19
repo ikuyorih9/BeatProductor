@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { DRUM_PIECES, HIGHEST_MIDI, LOWEST_MIDI } from '../js/config.js';
 import {
-  drumPieceForMidi, isPlayable, migrateLegacyDrumItems, migrateLegacyDrumMidi, playableRange,
+  drumPieceForMidi, isPlayable, migrateBottomKitMidi, migrateLegacyDrumItems, migrateLegacyDrumMidi, playableRange,
 } from '../js/core/music.js';
 import { defaultSettings, parseProject, serializeProject } from '../js/core/project.js';
 import { parseNoteName, parseProjectFile, serializeProjectFile } from '../js/core/project-file.js';
@@ -11,35 +11,45 @@ import { clampMove } from '../js/core/selection.js';
 import { Sequence } from '../js/core/sequence.js';
 
 const byMidi = (items) => [...items].sort((a, b) => a.midi - b.midi || a.start - b.start);
+const KIT = [62, 63, 64, 65, 66, 67, 68, 69]; // D4 … A4
 
-test('kit de bateria: 8 peças em teclas fixas e consecutivas, de C3 a G3', () => {
+test('kit de bateria: 8 peças em teclas fixas e consecutivas, de D4 a A4', () => {
   assert.deepEqual(DRUM_PIECES.map((p) => p.label), [
     'Bumbo', 'Caixa', 'Chimbal', 'Surdo', 'Tom 2', 'Tom 1', 'Ride', 'Prato de ataque',
   ]);
   DRUM_PIECES.forEach((piece, i) => {
-    assert.equal(piece.midi, 48 + i);
-    assert.equal(drumPieceForMidi(48 + i), piece);
+    assert.equal(piece.midi, KIT[i]);
+    assert.equal(drumPieceForMidi(KIT[i]), piece);
     assert.ok(piece.trim > 0);
   });
-  assert.equal(drumPieceForMidi(47), null);
-  assert.equal(drumPieceForMidi(56), null);
-  assert.equal(drumPieceForMidi(60), null); // antes, C4 repetia o bumbo
+  assert.equal(drumPieceForMidi(61), null);
+  assert.equal(drumPieceForMidi(70), null);
+  assert.equal(drumPieceForMidi(48), null); // antes, o kit ficava embaixo (C3–G3)
+});
+
+test('o kit fica no centro do grid: 14 teclas desativadas acima e 14 abaixo', () => {
+  assert.equal(KIT[0] - LOWEST_MIDI, 14);
+  assert.equal(HIGHEST_MIDI - KIT.at(-1), 14);
 });
 
 test('faixa por instrumento: a bateria aceita só o kit; os outros, o grid inteiro', () => {
-  assert.deepEqual(playableRange('drums'), { minMidi: 48, maxMidi: 55 });
+  assert.deepEqual(playableRange('drums'), { minMidi: 62, maxMidi: 69 });
   assert.deepEqual(playableRange('piano'), { minMidi: LOWEST_MIDI, maxMidi: HIGHEST_MIDI });
-  assert.ok(isPlayable('drums', 55));
-  assert.ok(!isPlayable('drums', 56));
+  assert.ok(isPlayable('drums', 69));
+  assert.ok(!isPlayable('drums', 70));
+  assert.ok(!isPlayable('drums', 55));
   assert.ok(isPlayable('lead', 83));
-  assert.ok(!isPlayable('drums', 50.5));
+  assert.ok(!isPlayable('drums', 63.5));
 });
 
-test('migração da bateria antiga (4 peças repetidas por classe de altura)', () => {
+test('migração da bateria de 4 peças (repetidas por classe de altura)', () => {
   // C bumbo, C# caixa, D chimbal fechado, D# chimbal aberto, E bumbo… em qualquer oitava.
-  assert.deepEqual([60, 61, 62, 63, 64, 77, 83].map(migrateLegacyDrumMidi), [48, 49, 50, 50, 48, 49, 50]);
-  // Idempotente nas teclas que já eram do kit antigo (C3, C#3, D3).
-  assert.deepEqual([48, 49, 50].map(migrateLegacyDrumMidi), [48, 49, 50]);
+  assert.deepEqual([60, 61, 62, 63, 64, 77, 83].map(migrateLegacyDrumMidi), [62, 63, 64, 64, 62, 63, 64]);
+});
+
+test('migração do kit de baixo (C3–G3) para o kit centralizado', () => {
+  assert.deepEqual([48, 49, 50, 51, 52, 53, 54, 55].map(migrateBottomKitMidi), KIT);
+  assert.equal(migrateBottomKitMidi(70), 70); // fora daquele kit: intacta (e descartada ao carregar)
 });
 
 test('migração não deixa sobreposições na mesma tecla nem mexe nos outros instrumentos', () => {
@@ -52,55 +62,66 @@ test('migração não deixa sobreposições na mesma tecla nem mexe nos outros i
     { instrument: 'piano', midi: 63, start: 0, duration: 3, kind: 'note' },
   ]);
   assert.deepEqual(byMidi(items.filter((i) => i.instrument === 'drums')), [
-    { instrument: 'drums', midi: 48, start: 0, duration: 3, kind: 'note' },
-    { instrument: 'drums', midi: 50, start: 0, duration: 6, kind: 'note' },
-    { instrument: 'drums', midi: 50, start: 6, duration: 3, kind: 'note' },
+    { instrument: 'drums', midi: 62, start: 0, duration: 3, kind: 'note' },
+    { instrument: 'drums', midi: 64, start: 0, duration: 6, kind: 'note' },
+    { instrument: 'drums', midi: 64, start: 6, duration: 3, kind: 'note' },
   ]);
   assert.equal(items.find((i) => i.instrument === 'piano').midi, 63);
 });
 
-test('projeto salvo no navegador (v2) é migrado ao abrir; o novo salva como v3', () => {
-  const old = JSON.stringify({
-    version: 2,
-    settings: { ...defaultSettings(), instrument: 'drums' },
-    notes: [
-      { instrument: 'drums', midi: 61, start: 12, duration: 3, kind: 'note' },
-      { instrument: 'drums', midi: 63, start: 0, duration: 3, kind: 'note' },
-      { instrument: 'piano', midi: 70, start: 0, duration: 3, kind: 'note' },
-    ],
-  });
-  const loaded = parseProject(old);
-  assert.deepEqual(byMidi(loaded.notes).map((n) => [n.instrument, n.midi]), [['drums', 49], ['drums', 50], ['piano', 70]]);
+const savedProject = (version, notes) => JSON.stringify({
+  version, settings: { ...defaultSettings(), instrument: 'drums' }, notes,
+});
+
+test('projeto salvo no navegador v2 (4 peças) é migrado ao abrir; o novo salva como v4', () => {
+  const loaded = parseProject(savedProject(2, [
+    { instrument: 'drums', midi: 61, start: 12, duration: 3, kind: 'note' },
+    { instrument: 'drums', midi: 63, start: 0, duration: 3, kind: 'note' },
+    { instrument: 'piano', midi: 70, start: 0, duration: 3, kind: 'note' },
+  ]));
+  assert.deepEqual(byMidi(loaded.notes).map((n) => [n.instrument, n.midi]), [['drums', 63], ['drums', 64], ['piano', 70]]);
   const seq = new Sequence(192);
   seq.loadJSON(loaded.notes);
   const saved = serializeProject(loaded.settings, seq);
-  assert.equal(JSON.parse(saved).version, 3);
-  assert.deepEqual(byMidi(parseProject(saved).notes), byMidi(seq.toJSON())); // v3 não é migrado de novo
+  assert.equal(JSON.parse(saved).version, 4);
+  assert.deepEqual(byMidi(parseProject(saved).notes), byMidi(seq.toJSON())); // v4 não é migrado de novo
+});
+
+test('projeto salvo no navegador v3 (kit embaixo) sobe para o kit centralizado', () => {
+  const loaded = parseProject(savedProject(3, [
+    { instrument: 'drums', midi: 48, start: 0, duration: 3, kind: 'note' },
+    { instrument: 'drums', midi: 55, start: 0, duration: 3, kind: 'note' },
+    { instrument: 'drums', midi: 50, start: 6, duration: 3, kind: 'rest' },
+    { instrument: 'piano', midi: 48, start: 0, duration: 3, kind: 'note' },
+  ]));
+  assert.deepEqual(byMidi(loaded.notes).map((n) => [n.instrument, n.midi, n.kind]), [
+    ['piano', 48, 'note'], ['drums', 62, 'note'], ['drums', 64, 'rest'], ['drums', 69, 'note'],
+  ]);
 });
 
 test('ao carregar, nota de bateria fora do kit é descartada (dado corrompido)', () => {
   const seq = new Sequence(192);
   seq.loadJSON([
-    { instrument: 'drums', midi: 70, start: 0, duration: 3 },
-    { instrument: 'drums', midi: 55, start: 0, duration: 3 },
-    { instrument: 'piano', midi: 70, start: 0, duration: 3 },
+    { instrument: 'drums', midi: 48, start: 0, duration: 3 },
+    { instrument: 'drums', midi: 69, start: 0, duration: 3 },
+    { instrument: 'piano', midi: 48, start: 0, duration: 3 },
   ]);
-  assert.deepEqual(seq.toJSON().map((n) => [n.instrument, n.midi]), [['drums', 55], ['piano', 70]]);
+  assert.deepEqual(seq.toJSON().map((n) => [n.instrument, n.midi]), [['drums', 69], ['piano', 48]]);
 });
 
 test('arquivo de texto: nomes de todas as peças e erro claro fora do kit', () => {
   const names = ['bumbo', 'caixa', 'chimbal', 'surdo', 'tom-2', 'tom-1', 'ride', 'ataque'];
-  assert.deepEqual(names.map((n) => parseNoteName(n, 'drums')), [48, 49, 50, 51, 52, 53, 54, 55]);
-  assert.equal(parseNoteName('Prato-de-Ataque', 'drums'), 55);
-  assert.equal(parseNoteName('Condução', 'drums'), 54);
-  assert.equal(parseNoteName('chimbal-aberto', 'drums'), 50); // nome antigo continua valendo
+  assert.deepEqual(names.map((n) => parseNoteName(n, 'drums')), KIT);
+  assert.equal(parseNoteName('Prato-de-Ataque', 'drums'), 69);
+  assert.equal(parseNoteName('Condução', 'drums'), 68);
+  assert.equal(parseNoteName('chimbal-aberto', 'drums'), 64); // nome antigo continua valendo
 
-  const bad = parseProjectFile('[projeto]\nversao = 2\n[bateria]\n1.1  C4  1\n');
+  const bad = parseProjectFile('[projeto]\nversao = 3\n[bateria]\n1.1  C3  1\n');
   assert.equal(bad.ok, false);
-  assert.match(bad.errors[0], /linha 4: a nota C4 não é uma peça da bateria \(use C3 a G3/);
+  assert.match(bad.errors[0], /linha 4: a nota C3 não é uma peça da bateria \(use D4 a A4/);
 });
 
-test('arquivo de texto v1 (bateria antiga) é convertido para o kit novo, com aviso', () => {
+test('arquivo de texto v1 (4 peças) é convertido para o kit atual, com aviso informativo', () => {
   const text = [
     '[projeto]', 'versao = 1',
     '[bateria]',
@@ -108,33 +129,47 @@ test('arquivo de texto v1 (bateria antiga) é convertido para o kit novo, com av
     '1.1  E3  1/4', // bumbo no mesmo instante → vira um só
     '1.2  C#4  1/4', // caixa
     '1.3  D#5  1/4', // chimbal aberto → chimbal
-    '1.4  chimbal-aberto  1/4',
+    '1.4  chimbal-aberto  1/4', // nome de peça: não é convertido de novo
+    '2.1  pausa  1', // forma curta da pausa: na tecla do bumbo
   ].join('\n');
   const result = parseProjectFile(text);
   assert.equal(result.ok, true, JSON.stringify(result.errors));
-  assert.deepEqual(byMidi(result.items).map((n) => [n.midi, n.start]), [[48, 0], [49, 12], [50, 24], [50, 36]]);
-  assert.match(result.warnings.join(' '), /kit novo/);
+  assert.deepEqual(byMidi(result.items).map((n) => [n.midi, n.start, n.kind]), [
+    [62, 0, 'note'], [62, 48, 'rest'], [63, 12, 'note'], [64, 24, 'note'], [64, 36, 'note'],
+  ]);
+  assert.deepEqual(result.warnings, []);
+  assert.match(result.notices.join(' '), /kit novo/);
 });
 
-test('arquivo exportado com as 8 peças volta idêntico', () => {
+test('arquivo de texto v2 (kit embaixo, C3–G3) sobe para D4–A4; nomes de peça não mudam', () => {
+  const text = ['[projeto]', 'versao = 2', '[bateria]', '1.1  C3  1/4', '1.2  G3  1/4', '1.3  surdo  1/4'].join('\n');
+  const result = parseProjectFile(text);
+  assert.equal(result.ok, true, JSON.stringify(result.errors));
+  assert.deepEqual(byMidi(result.items).map((n) => n.midi), [62, 65, 69]);
+  assert.match(result.notices.join(' '), /D4 a A4/);
+});
+
+test('arquivo exportado com as 8 peças volta idêntico, sem avisos', () => {
   const seq = new Sequence(192);
   DRUM_PIECES.forEach((piece, i) => seq.addNote({ instrument: 'drums', midi: piece.midi, start: i * 3, duration: 3 }));
   const text = serializeProjectFile(defaultSettings(), seq.toJSON());
+  assert.match(text, /versao\s+= 3/);
   assert.match(text, /# prato de ataque/);
   assert.match(text, /# surdo/);
   const result = parseProjectFile(text);
   assert.equal(result.ok, true, JSON.stringify(result.errors));
   assert.deepEqual(result.warnings, []);
+  assert.deepEqual(result.notices, []);
   assert.deepEqual(byMidi(result.items), byMidi(seq.toJSON()));
 });
 
 test('arrastar a seleção fica preso às linhas permitidas (kit da bateria)', () => {
-  // Linhas de cima para baixo: 83 … 48; o kit (55 … 48) ocupa as linhas 28 a 35.
+  // Linhas de cima para baixo: 83 … 48; o kit (69 … 62) ocupa as linhas 14 a 21.
   const rowIndex = new Map(Array.from({ length: 36 }, (_, i) => [83 - i, i]));
-  const bounds = { rowIndex, rowCount: 36, lengthTicks: 192, minRow: 28, maxRow: 35 };
-  const items = [{ midi: 50, start: 0, duration: 3 }, { midi: 52, start: 0, duration: 3 }]; // linhas 33 e 31
-  assert.deepEqual(clampMove(items, -10, 0, bounds), { dRows: -3, dTicks: 0 }); // 52 → 55 (prato)
-  assert.deepEqual(clampMove(items, 10, 0, bounds), { dRows: 2, dTicks: 0 }); // 50 → 48 (bumbo)
+  const bounds = { rowIndex, rowCount: 36, lengthTicks: 192, minRow: 14, maxRow: 21 };
+  const items = [{ midi: 64, start: 0, duration: 3 }, { midi: 66, start: 0, duration: 3 }]; // linhas 19 e 17
+  assert.deepEqual(clampMove(items, -10, 0, bounds), { dRows: -3, dTicks: 0 }); // 66 → 69 (prato)
+  assert.deepEqual(clampMove(items, 10, 0, bounds), { dRows: 2, dTicks: 0 }); // 64 → 62 (bumbo)
 });
 
 test('index.html espera a mesma versão do frontend que o config.js declara', async () => {

@@ -187,7 +187,7 @@ function previewNote(midi, duration = 0.35) {
   });
 }
 
-/** Rola o grid na vertical para mostrar as teclas do instrumento (o kit da bateria fica embaixo). */
+/** Rola o grid na vertical para deixar as teclas do instrumento no meio da tela (o kit da bateria). */
 function revealPlayableRows(instrument) {
   const { minMidi, maxMidi } = playableRange(instrument);
   if (minMidi === LOWEST_MIDI && maxMidi === range[0]) return; // faixa inteira: nada a fazer
@@ -196,8 +196,7 @@ function revealPlayableRows(instrument) {
   const bottom = (rowIndex.get(minMidi) + 1) * ROW_HEIGHT;
   const rulerHeight = 24;
   const visible = scroller.clientHeight - rulerHeight;
-  if (top >= scroller.scrollTop && bottom <= scroller.scrollTop + visible) return;
-  scroller.scrollTop = Math.max(0, bottom - visible + ROW_HEIGHT);
+  scroller.scrollTop = Math.max(0, Math.round((top + bottom) / 2 - visible / 2));
 }
 
 function seek(tick) {
@@ -428,7 +427,8 @@ async function importProjectFile(file) {
   onSequenceChanged();
   seek(0);
   const notes = result.items.length;
-  showToast(`Projeto importado: ${notes} nota(s)/pausa(s).${result.warnings.length ? ` Atenção: ${result.warnings.join('; ')}.` : ''}`,
+  const notices = result.notices.length ? ` ${result.notices.join('; ')}.` : '';
+  showToast(`Projeto importado: ${notes} nota(s)/pausa(s).${notices}${result.warnings.length ? ` Atenção: ${result.warnings.join('; ')}.` : ''}`,
     result.warnings.length ? 'error' : 'success');
 }
 

@@ -72,11 +72,11 @@ function noiseSource(ctx, noiseBuffer) {
 }
 
 /**
- * Bumbo: seno grave com queda de afinação + "knock" médio + estalo do pedal. Só o grave
- * (50 Hz) some em alto-falantes pequenos (notebook, celular); o knock (330→110 Hz) e o estalo
- * fazem o bumbo ser ouvido em qualquer caixa de som.
+ * Bumbo: seno grave com queda de afinação + "knock" médio. Só o grave (50 Hz) some em
+ * alto-falantes pequenos (notebook, celular); o knock (330→110 Hz) faz o bumbo ser ouvido em
+ * qualquer caixa de som. Sem ruído: um estalo de ruído soava como chiado.
  */
-function kick(ctx, when, noiseBuffer) {
+function kick(ctx, when) {
   const output = ctx.createGain();
   const osc = oscillator(ctx, 'sine', 160);
   osc.frequency.setValueAtTime(160, when);
@@ -95,15 +95,7 @@ function kick(ctx, when, noiseBuffer) {
   knockGain.gain.setValueAtTime(0.3, when);
   knockGain.gain.exponentialRampToValueAtTime(0.001, when + 0.12);
 
-  const click = noiseSource(ctx, noiseBuffer);
-  const highpass = ctx.createBiquadFilter();
-  highpass.type = 'highpass';
-  highpass.frequency.value = 3000;
-  const clickGain = ctx.createGain();
-  click.connect(highpass).connect(clickGain).connect(output);
-  clickGain.gain.setValueAtTime(0.18, when);
-  clickGain.gain.exponentialRampToValueAtTime(0.001, when + 0.02);
-  return { output, sources: [osc, knock, click], endTime: when + 0.47 };
+  return { output, sources: [osc, knock], endTime: when + 0.47 };
 }
 
 function snare(ctx, when, noiseBuffer) {
@@ -212,7 +204,7 @@ function cymbal(ctx, when, noiseBuffer, { metal, metalCutoff, noise, decay }) {
 export function drums(ctx, { midi, when }, { noiseBuffer }) {
   const piece = drumPieceForMidi(midi);
   switch (piece?.id) {
-    case 'kick': return kick(ctx, when, noiseBuffer);
+    case 'kick': return kick(ctx, when);
     case 'snare': return snare(ctx, when, noiseBuffer);
     case 'hihat': return hihat(ctx, when, noiseBuffer, 0.08);
     case 'floor_tom': case 'tom2': case 'tom1': return tom(ctx, when, noiseBuffer, TOMS[piece.id]);

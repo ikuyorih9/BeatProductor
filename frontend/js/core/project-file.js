@@ -19,10 +19,11 @@ import {
   BARS, BPM, DIVISIONS, HIGHEST_MIDI, INSTRUMENT_IDS, LOOPS, LOWEST_MIDI, METERS, VOLUME,
 } from '../config.js';
 import {
-  DRUM_HIGHEST_MIDI, DRUM_LOWEST_MIDI,
+  DRUM_HIGHEST_MIDI, DRUM_LOWEST_MIDI, DRUM_PIECES,
 } from '../config.js';
 import {
-  drumPieceForMidi, isPlayable, migrateLegacyDrumItems, migrateLegacyDrumMidi, midiToName, NOTE_NAMES,
+  drumPieceForMidi, isPlayable, migrateBottomKitMidi, migrateDrumItems, migrateLegacyDrumMidi, midiToName,
+  NOTE_NAMES,
 } from './music.js';
 import { defaultSettings } from './project.js';
 import { divisionFitsMeter, lengthInTicks, meterInfo } from './timing.js';
@@ -30,27 +31,35 @@ import { divisionFitsMeter, lengthInTicks, meterInfo } from './timing.js';
 /**
  * Versões do arquivo:
  *   1 — bateria com 4 peças repetidas em todas as teclas (C bumbo, C# caixa, D/D# chimbal…);
- *   2 — bateria com 8 peças em teclas fixas, C3 a G3 (ver DRUM_PIECES). Arquivos v1 são migrados.
- * Arquivo sem "versao" é lido como a versão atual.
+ *   2 — bateria com 8 peças em teclas fixas embaixo do grid, C3 a G3;
+ *   3 — o kit de 8 peças no centro do grid, D4 a A4 (ver DRUM_PIECES).
+ * Arquivos antigos são migrados. Arquivo sem "versao" é lido como a versão atual. Nomes de peça
+ * (bumbo, caixa…) valem em qualquer versão e nunca são convertidos.
  */
-export const FILE_FORMAT_VERSION = 2;
+export const FILE_FORMAT_VERSION = 3;
+
+/** Conversão das notas de bateria escritas como nota (C3, D#4…) em arquivos de versões antigas. */
+const DRUM_MIGRATION = Object.freeze({ 1: migrateLegacyDrumMidi, 2: migrateBottomKitMidi });
 
 /** Nome da seção de cada instrumento no arquivo (em português, como no app). */
 const SECTION_OF = Object.freeze({ piano: 'piano', drums: 'bateria', lofi: 'lofi', lead: 'lead' });
 const INSTRUMENT_OF_SECTION = Object.freeze({
   piano: 'piano', bateria: 'drums', drums: 'drums', lofi: 'lofi', lead: 'lead',
 });
-/** Nomes das peças aceitos no lugar da nota, na bateria (a tecla da peça no kit). */
-const DRUM_ALIASES = Object.freeze({
-  bumbo: 48, kick: 48,
-  caixa: 49, snare: 49,
-  chimbal: 50, hihat: 50, 'chimbal-fechado': 50, 'hihat-fechado': 50, 'chimbal-aberto': 50, 'hihat-aberto': 50,
-  surdo: 51, 'floor-tom': 51,
-  'tom-2': 52, tom2: 52,
-  'tom-1': 53, tom1: 53,
-  ride: 54, conducao: 54,
-  ataque: 55, 'prato-de-ataque': 55, prato: 55, crash: 55,
+/** Nomes das peças aceitos no lugar da nota, na bateria (viram a tecla da peça no kit). */
+const ALIASES_BY_PIECE = Object.freeze({
+  kick: ['bumbo', 'kick'],
+  snare: ['caixa', 'snare'],
+  hihat: ['chimbal', 'hihat', 'chimbal-fechado', 'hihat-fechado', 'chimbal-aberto', 'hihat-aberto'],
+  floor_tom: ['surdo', 'floor-tom'],
+  tom2: ['tom-2', 'tom2'],
+  tom1: ['tom-1', 'tom1'],
+  ride: ['ride', 'conducao'],
+  crash: ['ataque', 'prato-de-ataque', 'prato', 'crash'],
 });
+const DRUM_ALIASES = Object.freeze(Object.fromEntries(
+  DRUM_PIECES.flatMap((piece) => ALIASES_BY_PIECE[piece.id].map((alias) => [alias, piece.midi])),
+));
 const DRUM_ALIAS_HINT = 'bumbo, caixa, chimbal, surdo, tom-2, tom-1, ride, ataque';
 const DEFAULT_REST_MIDI = 60;
 const MAX_ERRORS = 8;
@@ -238,7 +247,7 @@ export function serializeProjectFile(settings, items) {
 // ---------------------------------------------------------------- importar
 /**
  * Lê o arquivo de texto.
- * @returns {{ ok: true, settings: object, items: Array, warnings: string[] } | { ok: false, errors: string[] }}
+ * @returns {{ ok: true, settings: object, items: Array, warnings: string[], notices: string[] } | { ok: false, errors: string[] }}
  */
 export function parseProjectFile(text) {
   const errors = [];
@@ -295,10 +304,10 @@ export function parseProjectFile(text) {
     errors.push(`divisão ${settings.division} não cabe no compasso ${settings.meter} (use 1/8, 1/16 ou 1/16T)`);
   }
 
-  // Versão do arquivo (sem "versao" = atual). A v1 tinha outra bateria: as notas são migradas.
+  // Versão do arquivo (sem "versao" = atual). Até a v2 a bateria ficava em outras teclas.
   const version = settings[VERSION_KEY] ?? FILE_FORMAT_VERSION;
   delete settings[VERSION_KEY];
-  const legacyDrums = version < 2;
+  const migrateDrum = DRUM_MIGRATION[version] ?? null;
 
   // 2ª passada: as notas, com o compasso já conhecido.
   const { beatTicks } = meterInfo(settings.meter);
@@ -321,12 +330,13 @@ export function parseProjectFile(text) {
         if (parts.length === 3 && normalizeKey(parts[1]) === 'pausa') {
           // forma curta: "2.1  pausa  2"
           kind = 'rest';
-          parts[1] = midiToName(instrument === 'drums' ? LOWEST_MIDI : DEFAULT_REST_MIDI);
+          parts[1] = instrument === 'drums' ? 'bumbo' : midiToName(DEFAULT_REST_MIDI);
         }
         if (parts.length !== 3) throw new Error('esperado "posição nota duração [pausa]"');
         const start = parsePosition(parts[0], settings.meter);
         let midi = parseNoteName(parts[1], instrument);
-        if (instrument === 'drums' && legacyDrums) midi = migrateLegacyDrumMidi(midi);
+        const isAlias = instrument === 'drums' && Object.hasOwn(DRUM_ALIASES, normalizeKey(parts[1]));
+        if (instrument === 'drums' && migrateDrum && !isAlias) midi = migrateDrum(midi);
         if (midi < LOWEST_MIDI || midi > HIGHEST_MIDI) {
           throw new Error(`nota ${parts[1]} fora da faixa do grid (${midiToName(LOWEST_MIDI)} a ${midiToName(HIGHEST_MIDI)})`);
         }
@@ -344,11 +354,15 @@ export function parseProjectFile(text) {
 
   if (errors.length > 0) return { ok: false, errors };
   // Peças antigas que caíram na mesma tecla não podem se sobrepor (a anterior é encurtada).
-  if (legacyDrums) items.splice(0, items.length, ...migrateLegacyDrumItems(items));
+  if (migrateDrum) items.splice(0, items.length, ...migrateDrumItems(items, (midi) => midi));
 
   const warnings = [];
-  if (legacyDrums && items.some((item) => item.instrument === 'drums')) {
-    warnings.push('bateria de um arquivo antigo convertida para o kit novo (chimbal aberto virou chimbal)');
+  /** Avisos informativos (não são problemas): conversões feitas na importação. */
+  const notices = [];
+  if (migrateDrum && items.some((item) => item.instrument === 'drums')) {
+    notices.push(version === 1
+      ? 'bateria de um arquivo antigo convertida para o kit novo (chimbal aberto virou chimbal)'
+      : `bateria de um arquivo antigo movida para as teclas atuais do kit (${midiToName(DRUM_LOWEST_MIDI)} a ${midiToName(DRUM_HIGHEST_MIDI)})`);
   }
   const gridEnd = lengthInTicks(settings.bars, settings.meter);
   const outside = items.filter((item) => item.start >= gridEnd).length;
@@ -359,5 +373,5 @@ export function parseProjectFile(text) {
   }).length;
   if (overlaps > 0) warnings.push(`${overlaps} nota(s) sobrepostas na mesma linha: a de baixo no arquivo prevaleceu`);
   if (outside > 0) warnings.push(`${outside} nota(s) depois do fim do grid (ficam guardadas; aumente os compassos para vê-las)`);
-  return { ok: true, settings, items, warnings };
+  return { ok: true, settings, items, warnings, notices };
 }

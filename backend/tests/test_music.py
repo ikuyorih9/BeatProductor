@@ -30,13 +30,18 @@ def test_frequencies():
 
 
 def test_drum_kit_matches_frontend():
-    # Mesmas teclas de DRUM_PIECES em frontend/js/config.js (C3 a G3, uma peça por tecla).
-    assert [drum_piece_for_midi(m) for m in range(48, 56)] == [
+    # Mesmas teclas de DRUM_PIECES em frontend/js/config.js (D4 a A4, uma peça por tecla, no centro).
+    assert [drum_piece_for_midi(m) for m in range(62, 70)] == [
         "kick", "snare", "hihat", "floor_tom", "tom2", "tom1", "ride", "crash",
     ]
-    assert drum_piece_for_midi(47) is None
-    assert drum_piece_for_midi(56) is None
-    assert drum_piece_for_midi(60) is None  # antes, C4 repetia o bumbo
+    assert drum_piece_for_midi(61) is None
+    assert drum_piece_for_midi(70) is None
+    assert drum_piece_for_midi(48) is None  # antes, o kit ficava em C3–G3
+
+
+def test_drum_kit_is_centered_in_the_grid():
+    # Grid: C3 (48) a B5 (83) = 36 teclas; 8 do kit no meio → 14 acima e 14 abaixo.
+    assert min(DRUM_KIT) - 48 == 83 - max(DRUM_KIT) == 14
 
 
 def test_drum_kit_is_the_same_in_frontend_config():

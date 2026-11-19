@@ -69,11 +69,11 @@ Quando aparecer *"Beat Productor rodando em http://127.0.0.1:8000"*, abra esse e
 
 ## 2. Seu primeiro beat em 2 minutos
 
-1. Em **Instrumento**, escolha **Bateria**. O grid rola até o kit: as 8 teclas de baixo mostram *Bumbo*, *Caixa*,
+1. Em **Instrumento**, escolha **Bateria**. O kit fica no meio do grid, e a tela se centraliza nele: as 8 teclas mostram *Bumbo*, *Caixa*,
    *Chimbal*… e as outras ficam riscadas (desativadas).
-2. Na linha **Bumbo** (C3, a última), clique na 1ª célula de cada compasso e na 3ª batida.
-3. Na linha **Caixa** logo acima (C#3), clique na 2ª e na 4ª batida de cada compasso.
-4. Na linha **Chimbal** (D3), clique em células alternadas para um ritmo constante. Um **Prato de ataque** (G3) na
+2. Na linha **Bumbo** (D4, a de baixo do kit), clique na 1ª célula de cada compasso e na 3ª batida.
+3. Na linha **Caixa** logo acima (D#4), clique na 2ª e na 4ª batida de cada compasso.
+4. Na linha **Chimbal** (E4), clique em células alternadas para um ritmo constante. Um **Prato de ataque** (A4) na
    1ª célula marca o começo.
 5. Troque para **Piano Acústico** e **arraste** na horizontal para criar notas longas (um acorde: C4, E4, G4).
 6. Aperte **▶ PLAY** (ou **Espaço**). Ajuste o **BPM** enquanto toca, se quiser.
@@ -121,7 +121,7 @@ Quando aparecer *"Beat Productor rodando em http://127.0.0.1:8000"*, abra esse e
 | **🗑 (lixeira)** | Apaga as notas selecionadas. Só fica ativa quando há seleção (atalho **Delete**). |
 | **Limpar** | Apaga as notas e pausas do instrumento atual (pede confirmação). |
 | **Limpar tudo** | Apaga as notas e pausas de **todos** os instrumentos de uma vez (pede confirmação). |
-| **Mixer** | Um volume por instrumento, de 0% (mudo) a 200%. **100% já vem equilibrado**: os instrumentos (e cada peça da bateria) foram calibrados para soar com intensidade parecida, e a bateria no 100% não fica abaixo do piano. A escala é perceptiva: **50% ≈ metade do volume percebido (−12 dB)**, **200% ≈ o dobro (+12 dB)**. Vale ao vivo e no MP3 exportado. **Duplo clique** no slider volta a 100%. A saída tem um limitador: mesmo com tudo no máximo, o som não distorce. |
+| **Mixer** | Um volume por instrumento, de 0% (mudo) a 200%. **100% já vem equilibrado**: os instrumentos (e cada peça da bateria) foram calibrados para soar com intensidade parecida, e a bateria soa **limpa** no 100% (sem saturar, mesmo com golpes simultâneos). A escala é perceptiva: **50% ≈ metade do volume percebido (−12 dB)**, **200% ≈ o dobro (+12 dB)**. Vale ao vivo e no MP3 exportado. **Duplo clique** no slider volta a 100%. A saída tem um limitador: mesmo com tudo no máximo, o som não distorce. |
 
 ### 3.3 Grid de montagem
 
@@ -218,26 +218,28 @@ Com notas selecionadas:
 
 ### 4.6 Bateria
 
-Com **Bateria** selecionada, só as **8 teclas do kit** (C3 a G3, embaixo do grid) ficam ativas. Cada uma é uma peça:
+Com **Bateria** selecionada, só as **8 teclas do kit** (D4 a A4, no **centro** do grid) ficam ativas, e a tela
+rola para deixá-las no meio. Cada tecla é uma peça:
 
 | Tecla | Peça | Som |
 |---|---|---|
-| G3  | **Prato de ataque** | Prato longo e brilhante, para marcar começos de frase |
-| F#3 | **Ride** | Prato de condução, metálico e mais contido |
-| F3  | **Tom 1** | Tom agudo |
-| E3  | **Tom 2** | Tom médio |
-| D#3 | **Surdo** | Tom grave |
-| D3  | **Chimbal** | Chimbal fechado, curto |
-| C#3 | **Caixa** | |
-| C3  | **Bumbo** | Grave com "knock" e estalo do pedal, audível até em alto-falante de notebook |
+| A4  | **Prato de ataque** | Prato longo e brilhante, para marcar começos de frase |
+| G#4 | **Ride** | Prato de condução, metálico e mais contido |
+| G4  | **Tom 1** | Tom agudo |
+| F#4 | **Tom 2** | Tom médio |
+| F4  | **Surdo** | Tom grave |
+| E4  | **Chimbal** | Chimbal fechado, curto |
+| D#4 | **Caixa** | |
+| D4  | **Bumbo** | Grave com "knock" médio, audível até em alto-falante de notebook |
 
-- As outras 28 teclas ficam **riscadas**: não tocam, não recebem notas nem pausas, e a seleção não pode ser
+- As outras 28 teclas (14 acima e 14 abaixo do kit) ficam **riscadas**: não tocam, não recebem notas nem pausas, e a seleção não pode ser
   arrastada (nem movida com as setas) para fora do kit. Ao colar na bateria notas copiadas de outras alturas, as
   que caem fora do kit ficam de fora (o app avisa).
 - Os outros instrumentos continuam com as 3 oitavas inteiras.
 - **Projetos antigos** (da bateria de 4 peças repetidas em todas as teclas) são convertidos sozinhos, tanto o
   salvo no navegador quanto um arquivo `versao = 1` importado: cada nota vai para a tecla da mesma peça no kit
-  novo (o antigo *hi-hat aberto* vira *chimbal*).
+  novo (o antigo *hi-hat aberto* vira *chimbal*). Projetos com o kit embaixo (C3 a G3, arquivo `versao = 2`)
+  sobem para D4 a A4 do mesmo jeito. Nomes de peça (`bumbo`, `caixa`…) nunca precisam de conversão.
 
 ### 4.7 Copiando de uma partitura (BPM, compasso e figuras)
 
@@ -312,7 +314,7 @@ alguém, ou **escrever uma música inteira à mão** e importar, sem desenhar na
 # Linhas que começam com # são comentários.
 
 [projeto]
-versao      = 2
+versao      = 3
 bpm         = 90       # semínimas (♩) por minuto
 compasso    = 3/4
 compassos   = 8
@@ -348,7 +350,7 @@ Cada nota é uma linha **`posição  nota  duração  [pausa]`**, separadas por 
 | Coluna | Formato | Exemplos |
 |---|---|---|
 | **posição** | `compasso.tempo`, com fração opcional do tempo depois de `+` | `1.1` (início) · `2.3` (3º tempo do 2º compasso) · `1.2+1/2` (meio do 2º tempo) |
-| **nota** | Nome científico, com `#` ou `b` | `C4` (dó central) · `F#3` · `Bb4`. Faixa: C3 a B5. Na **bateria**, só C3 a G3, ou o nome da peça: `bumbo`, `caixa`, `chimbal`, `surdo`, `tom-2`, `tom-1`, `ride`, `ataque`. |
+| **nota** | Nome científico, com `#` ou `b` | `C4` (dó central) · `F#3` · `Bb4`. Faixa: C3 a B5. Na **bateria**, só D4 a A4, ou o nome da peça: `bumbo`, `caixa`, `chimbal`, `surdo`, `tom-2`, `tom-1`, `ride`, `ataque`. |
 | **duração** | Em **tempos** do compasso: inteiro, fração, misto ou decimal | `1` · `2` · `1/2` · `1+1/2` · `1.5` · `1/3` (tercina) |
 | **pausa** | Opcional, no fim | Torna a linha uma pausa (bloco branco). Forma curta: `2.1  pausa  3`. |
 

@@ -13,7 +13,7 @@
  * antigos do cache, o número não bate e a página busca os arquivos de novo (ver index.html).
  * Aumente junto com APP_BUILD do index.html quando os módulos mudarem (um teste confere).
  */
-export const APP_BUILD = 3;
+export const APP_BUILD = 4;
 
 export const TICKS_PER_BEAT = 12; // ticks por semínima
 /** Ticks de uma semibreve (4 semínimas) — base para converter figuras: 1/8 de semibreve = 6 ticks. */
@@ -87,27 +87,28 @@ export const DEFAULT_INSTRUMENT = 'piano';
  * Calibração de volume por instrumento no navegador (ganho linear), medida para que
  * todos soem com intensidade parecida no volume 100%. O backend tem a sua própria
  * (backend/app/core/config.py), porque os sintetizadores são implementações diferentes.
- * A bateria leva +6 dB a mais que a calibração por RMS: golpes curtos soam mais baixos que notas
- * sustentadas com o mesmo RMS, e no 100% ela ficava abaixo do piano (o limitador segura os picos).
+ * Bateria: o bumbo no 100% chega a ~0,6 de pico na saída e nenhuma peça passa de ~0,72 — abaixo do
+ * joelho do limitador (0,9), então ela soa limpa (sem saturar) mesmo com golpes simultâneos.
  */
-export const INSTRUMENT_TRIM = Object.freeze({ piano: 0.85, drums: 2.0, lofi: 1.0, lead: 2.1 });
+export const INSTRUMENT_TRIM = Object.freeze({ piano: 0.85, drums: 1.5, lofi: 1.0, lead: 2.1 });
 
 /**
- * Kit de bateria: 8 peças, cada uma numa tecla fixa (C3 a G3, de baixo para cima no grid).
- * Só essas teclas valem na bateria; as outras ficam desativadas.
- * `trim` = calibração da peça no navegador (ganho linear sobre INSTRUMENT_TRIM.drums), medida na
- * cadeia de saída real para que nenhuma peça fique enterrada (ver tests/e2e/smoke.mjs).
+ * Kit de bateria: 8 peças, cada uma numa tecla fixa (D4 a A4, de baixo para cima), no CENTRO do
+ * grid: 14 teclas desativadas acima e 14 abaixo. Só essas teclas valem na bateria.
+ * `trim` = calibração da peça no navegador (ganho linear sobre INSTRUMENT_TRIM.drums), pela
+ * intensidade de curto prazo (maior RMS em 50 ms, que é como se ouve um golpe curto) em relação
+ * ao bumbo, com o pico de cada peça limitado a 1,2× o do bumbo (ver tests/e2e/smoke.mjs).
  * Mantenha em sincronia com backend/app/core/music.py (mesmas teclas) e config.py (trims do servidor).
  */
 export const DRUM_PIECES = Object.freeze([
-  { id: 'kick', label: 'Bumbo', midi: 48, trim: 1.18 },
-  { id: 'snare', label: 'Caixa', midi: 49, trim: 2.8 },
-  { id: 'hihat', label: 'Chimbal', midi: 50, trim: 7.0 },
-  { id: 'floor_tom', label: 'Surdo', midi: 51, trim: 0.77 },
-  { id: 'tom2', label: 'Tom 2', midi: 52, trim: 0.9 },
-  { id: 'tom1', label: 'Tom 1', midi: 53, trim: 1.06 },
-  { id: 'ride', label: 'Ride', midi: 54, trim: 2.3 },
-  { id: 'crash', label: 'Prato de ataque', midi: 55, trim: 0.9 },
+  { id: 'kick', label: 'Bumbo', midi: 62, trim: 1.0 },
+  { id: 'snare', label: 'Caixa', midi: 63, trim: 1.36 },
+  { id: 'hihat', label: 'Chimbal', midi: 64, trim: 1.6 },
+  { id: 'floor_tom', label: 'Surdo', midi: 65, trim: 0.79 },
+  { id: 'tom2', label: 'Tom 2', midi: 66, trim: 0.85 },
+  { id: 'tom1', label: 'Tom 1', midi: 67, trim: 0.9 },
+  { id: 'ride', label: 'Ride', midi: 68, trim: 2.8 },
+  { id: 'crash', label: 'Prato de ataque', midi: 69, trim: 1.43 },
 ].map((piece) => Object.freeze(piece)));
 export const DRUM_LOWEST_MIDI = DRUM_PIECES[0].midi;
 export const DRUM_HIGHEST_MIDI = DRUM_PIECES[DRUM_PIECES.length - 1].midi;

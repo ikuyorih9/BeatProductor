@@ -14,7 +14,7 @@ def payload(**overrides):
         "loops": 1,
         "format": "mp3",
         "events": [
-            {"time": 0.0, "note": "C3", "duration": 0.125, "instrument": "drums"},
+            {"time": 0.0, "note": "D4", "duration": 0.125, "instrument": "drums"},
             {"time": 0.5, "note": "C4", "duration": 0.5, "instrument": "piano"},
             {"time": 1.0, "note": "E4", "duration": 0.5, "instrument": "lofi"},
             {"time": 1.5, "note": "G4", "duration": 0.25, "instrument": "lead"},
@@ -38,16 +38,16 @@ def test_health(client):
 
 
 def test_drum_note_outside_the_kit_is_a_clear_422(client):
-    body = payload(events=[{"time": 0.0, "note": "C4", "duration": 0.1, "instrument": "drums"}])
+    body = payload(events=[{"time": 0.0, "note": "C3", "duration": 0.1, "instrument": "drums"}])
     response = client.post("/api/export", json=body)
     assert response.status_code == 422
     assert "não é uma peça da bateria" in response.text
-    assert "C3 a G3" in response.text
+    assert "D4 a A4" in response.text
 
 
 def test_all_8_drum_pieces_export(client):
     events = [{"time": i * 0.25, "note": n, "duration": 0.1, "instrument": "drums"}
-              for i, n in enumerate(["C3", "C#3", "D3", "D#3", "E3", "F3", "F#3", "G3"])]
+              for i, n in enumerate(["D4", "D#4", "E4", "F4", "F#4", "G4", "G#4", "A4"])]
     response = client.post("/api/export", json=payload(events=events, format="wav"))
     assert response.status_code == 200, response.text
 

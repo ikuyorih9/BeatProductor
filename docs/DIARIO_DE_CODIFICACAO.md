@@ -518,6 +518,48 @@ colcheia (4) não dividem o compasso.
 
 ---
 
+## 2026-11-19 — Bateria no centro do grid e som limpo (o bumbo chiava)
+
+**Pedido:** kit da bateria centralizado e som limpo; o bumbo estava chiando.
+
+**Kit no centro:** D4 a A4, com 14 teclas desativadas acima e 14 abaixo. Ao escolher a bateria, a tela centraliza o kit.
+- Projeto salvo no navegador v3 → v4; arquivo de texto `versao = 2` → `3`.
+- `migrateDrumItems(items, mapa)` separa a conversão de tecla do tratamento de sobreposições.
+- **Nomes de peça** (`bumbo`…) nunca são convertidos. A forma curta `pausa` da bateria virou o bumbo.
+- Avisos de conversão saem como informação (`notices`), não como erro.
+
+**Por que chiava — três causas, medidas na cadeia real do navegador:**
+1. **Estalo de ruído do bumbo:** o "clique do pedal" da versão anterior era ruído agudo, literalmente chiado a cada batida. **Removido** (o knock médio continua).
+2. **Saturação:** sem o limitador, a bateria no 100% chegava a 1,8× (caixa), 2,6× (chimbal) e quase 4× (beat) acima do ponto em que o limitador suave começava a distorcer (0,7).
+3. **Calibração inflada por um artefato de medição:** o `DynamicsCompressor` do Chrome atenua o som nos primeiros instantes depois de criado.
+   - Nas medições num `OfflineAudioContext` com o golpe no instante 0, o chimbal saía ~10 dB mais baixo, a caixa ~7 e o bumbo ~5.
+   - No app isso não acontece, porque o compressor já está rodando.
+   - A calibração anterior compensou um problema que não existia (chimbal 7×, caixa 2,8×). No app real esses golpes ficavam altos demais e saturavam.
+
+**Correção:**
+- **Calibração nova das peças:** pela intensidade de curto prazo (maior RMS em 50 ms, como se ouve um golpe), medida nas vozes sem a cadeia.
+  - O pico de cada peça fica limitado a 1,2× o do bumbo.
+  - Abaixo do bumbo: caixa ≈ −3,5 dB, chimbal ≈ −12, tons ≈ −1, ride ≈ −10, prato ≈ −4. Iguais (±0,5 dB) no navegador e no servidor.
+- **Limitador suave:** o joelho subiu de 0,7 para 0,9, acima do limiar do compressor (≈ 0,79). Quem segura os picos agora é o compressor, sem distorção; a saturação é só a última proteção. Vale para todos os instrumentos.
+- **Barramento da bateria:** 1,5. O bumbo fica com 0,6 de pico na saída (era 0,43 antes da sessão de volume e 0,98, saturando, na versão anterior).
+- **Medido (saturação = o que o limitador mudou no sinal):**
+  - cada peça isolada: abaixo de −110 dB, ou seja, nenhuma;
+  - beat de bumbo + caixa + chimbal: entre −49 e −72 dB, inaudível.
+- **Testei e descartei** um compressor mais forte (limiar −4/−6 dB, razão 20): limpa a saturação, mas comprime demais e o som "bombeia".
+- **Custo, dito com franqueza:** em RMS, um beat no 100% ficou ~4 dB abaixo do piano.
+  A versão anterior parecia mais alta justamente porque o chimbal estava exagerado e saturado.
+  O bumbo, peça a peça, está +3 dB acima do original.
+
+**Testes:**
+- E2E:
+  - mede a saturação de cada peça e do beat na cadeia real (deixa de exigir "bateria acima do piano");
+  - renderiza depois de 0,5 s, para não cair no artefato do compressor;
+  - confere que o kit fica no meio da tela.
+- pytest: equilíbrio por intensidade de curto prazo, limite de pico por peça e kit centralizado.
+- `node:test`: migrações v3 → v4 e arquivo v2 → v3.
+
+---
+
 ## Resumo final
 
 | Requisito | Onde |
@@ -533,4 +575,4 @@ colcheia (4) não dividem o compasso.
 | RNF02 Sem build/dependências pesadas | Vanilla JS em ES Modules + Tailwind via CDN, zero pacotes npm |
 | RNF03 MP3 limpo, sem cortes no loop | overlap-add, normalização −1 dBFS, fades de borda |
 
-**Totais:** 125 testes pytest · 100 testes `node:test` · 42 verificações E2E em navegador real.
+**Totais:** 128 testes pytest · 104 testes `node:test` · 42 verificações E2E em navegador real.
