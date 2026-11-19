@@ -1,16 +1,19 @@
 ﻿// Lançador do Beat Productor (gera o BeatProductor.exe da raiz do projeto).
 //
 // Duplo clique e pronto:
-//   1. encontra o Python 3.10+ e cria o ambiente .venv (primeira vez);
+//   1. encontra um Python compatível (3.12 a 3.14, 64 bits) e cria o ambiente .venv (primeira vez).
+//      Se a máquina não tiver um, baixa o instalador oficial do python.org (hash conferido) e instala
+//      o Python só para o Beat Productor, sem administrador e sem mexer no PATH;
 //   2. instala/atualiza as dependências só quando backend/requirements.txt muda;
 //   3. escolhe uma porta livre (8000 a 8020), sobe o servidor e abre o navegador;
 //   4. fechar a janela ou apertar Ctrl+C encerra o servidor.
 //
-// Opções: --port N  --no-browser  --no-pause  --help
+// Opções: --port N  --no-browser  --no-pause  --install-python  --help
 // Compilação: launcher\build.ps1 (usa o csc.exe do .NET Framework, presente em todo Windows).
 // Código compatível com C# 5 (o compilador que acompanha o .NET Framework 4.x).
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
@@ -19,6 +22,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using Microsoft.Win32;
 
 [assembly: AssemblyTitle("Beat Productor")]
 [assembly: AssemblyDescription("Inicia o Beat Productor e abre o navegador")]
@@ -51,16 +55,19 @@ namespace BeatProductor
 
             bool openBrowser = true;
             bool pauseOnError = true;
+            bool forceInstall = false;
             int requestedPort = 0;
             for (int i = 0; i < args.Length; i++)
             {
                 string arg = args[i].ToLowerInvariant();
                 if (arg == "--no-browser") openBrowser = false;
                 else if (arg == "--no-pause") pauseOnError = false;
+                else if (arg == "--install-python") forceInstall = true;
                 else if (arg == "--port" && i + 1 < args.Length && int.TryParse(args[i + 1], out requestedPort) && requestedPort > 0 && requestedPort < 65536) i++;
                 else if (arg == "--help" || arg == "-h" || arg == "/?")
                 {
-                    Console.WriteLine("Uso: BeatProductor.exe [--port N] [--no-browser] [--no-pause]");
+                    Console.WriteLine("Uso: BeatProductor.exe [--port N] [--no-browser] [--no-pause] [--install-python]");
+                    Console.WriteLine("  --install-python  ignora os Pythons do sistema e usa (instalando se preciso) o Python próprio do Beat Productor");
                     return 0;
                 }
                 else
@@ -76,7 +83,7 @@ namespace BeatProductor
 
             try
             {
-                return Run(requestedPort, openBrowser, pauseOnError);
+                return Run(requestedPort, openBrowser, pauseOnError, forceInstall);
             }
             catch (LauncherException ex)
             {
@@ -91,7 +98,7 @@ namespace BeatProductor
             return 1;
         }
 
-        private static int Run(int requestedPort, bool openBrowser, bool pauseOnError)
+        private static int Run(int requestedPort, bool openBrowser, bool pauseOnError, bool forceInstall)
         {
             string root = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
             string backend = Path.Combine(root, "backend");
@@ -116,7 +123,7 @@ namespace BeatProductor
                 return 0;
             }
 
-            string python = EnsureVirtualEnv(root);
+            string python = EnsureVirtualEnv(root, forceInstall);
             EnsureDependencies(python, root);
             int port = ChoosePort(requestedPort);
             string url = Url(port);
@@ -159,25 +166,74 @@ namespace BeatProductor
 
         // ------------------------------------------------------------------ Python e dependências
 
-        private static string EnsureVirtualEnv(string root)
+        // Faixa de Python suportada: as versões fixadas em backend/requirements.txt têm pacotes prontos
+        // (wheels) para 3.12, 3.13 e 3.14. Fora dela o pip não acha versão ("could not find a version that
+        // satisfies the requirement ..."). Mantenha em sincronia com backend/pyproject.toml e scripts/run.*.
+        private static readonly Version MinPython = new Version(3, 12);
+        private static readonly Version MaxPython = new Version(3, 14);
+        private const string SupportedRange = "3.12 a 3.14, 64 bits";
+
+        // Python instalado automaticamente quando a máquina não tem um compatível: instalador oficial,
+        // só para o usuário atual (sem administrador), numa pasta própria e sem mexer no PATH.
+        private const string BundledPythonVersion = "3.13.14";
+        private const string BundledPythonUrl = "https://www.python.org/ftp/python/3.13.14/python-3.13.14-amd64.exe";
+        private const string BundledPythonSha256 = "C54D9B9BBB8A36E6489363DDD01139707FD781D72F1F9E90C7EC65D0061368E0";
+
+        private sealed class PythonInfo
+        {
+            public Version Version;
+            public int Bits;
+            public bool FreeThreaded;
+
+            public bool Supported
+            {
+                get { return Version >= MinPython && Version <= MaxPython && Bits == 64 && !FreeThreaded; }
+            }
+
+            public override string ToString()
+            {
+                return Version + " (" + Bits + " bits" + (FreeThreaded ? ", free-threaded" : "") + ")";
+            }
+        }
+
+        private static string BeatProductorDataDir()
+        {
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BeatProductor");
+        }
+
+        private static string BundledPythonDir()
+        {
+            return Path.Combine(BeatProductorDataDir(), "Python313");
+        }
+
+        private static string EnsureVirtualEnv(string root, bool forceInstall)
         {
             string venv = Path.Combine(root, ".venv");
             string venvPython = Path.Combine(venv, Path.Combine("Scripts", "python.exe"));
 
-            if (File.Exists(venvPython))
+            if (File.Exists(venvPython) && !forceInstall)
             {
-                if (PythonVersion(venvPython, "") != null) return venvPython;
-                Warn("O ambiente .venv está quebrado (pasta movida ou Python atualizado). Recriando ...");
+                PythonInfo current = ProbePython(venvPython, "");
+                if (current != null && current.Supported) return venvPython;
+                if (current == null)
+                    Warn("O ambiente .venv está quebrado (pasta movida ou Python desinstalado). Recriando ...");
+                else
+                    Warn("O ambiente .venv foi criado com o Python " + current + ", fora da faixa suportada (" +
+                         SupportedRange + "). Recriando ...");
             }
 
-            string[] basePython = FindBasePython();
+            string[] basePython = forceInstall ? null : FindBasePython();
             if (basePython == null)
             {
-                throw new LauncherException(
-                    "Python 3.10 ou mais novo não foi encontrado.\n" +
-                    "  1. Instale em " + PythonDownloadUrl + "\n" +
-                    "  2. Na instalação, marque \"Add Python to PATH\".\n" +
-                    "  3. Abra o BeatProductor.exe de novo.");
+                InstallBundledPython();
+                basePython = FindBasePython();
+                if (basePython == null)
+                {
+                    throw new LauncherException(
+                        "O Python foi instalado, mas não consegui usá-lo.\n" +
+                        "Instale manualmente o Python " + BundledPythonVersion + " (64 bits) em " + PythonDownloadUrl +
+                        " e abra o BeatProductor.exe de novo.");
+                }
             }
 
             Step("Criando o ambiente Python (.venv) — só na primeira vez ...");
@@ -187,30 +243,190 @@ namespace BeatProductor
             return venvPython;
         }
 
-        /// <returns>{ executável, argumentos iniciais } ou null.</returns>
+        /// <returns>{ executável, argumentos iniciais } de um Python da faixa suportada, ou null.</returns>
         private static string[] FindBasePython()
         {
-            string[][] candidates =
-            {
-                new[] { "py", "-3" },
-                new[] { "python", "" },
-                new[] { "python3", "" },
-            };
+            List<string[]> candidates = new List<string[]>();
+            candidates.Add(new[] { Path.Combine(BundledPythonDir(), "python.exe"), "" });
+            foreach (string exe in RegisteredPythons()) candidates.Add(new[] { exe, "" });
+            for (int minor = MinPython.Minor; minor <= MaxPython.Minor; minor++)
+                candidates.Add(new[] { "py", "-3." + minor });
+            candidates.Add(new[] { "python", "" });
+            candidates.Add(new[] { "python3", "" });
+
+            List<string> rejected = new List<string>();
             foreach (string[] candidate in candidates)
             {
-                Version version = PythonVersion(candidate[0], candidate[1]);
-                if (version != null && version >= new Version(3, 10)) return candidate;
+                if (Path.IsPathRooted(candidate[0]) && !File.Exists(candidate[0])) continue;
+                PythonInfo info = ProbePython(candidate[0], candidate[1]);
+                if (info == null) continue;
+                if (info.Supported)
+                {
+                    Step("Usando o Python " + info + ": " + (candidate[0] + " " + candidate[1]).Trim());
+                    return candidate;
+                }
+                string description = info.ToString();
+                if (!rejected.Contains(description)) rejected.Add(description);
             }
+            if (rejected.Count > 0)
+                Warn("Python encontrado, mas fora da faixa suportada (" + SupportedRange + "): " + string.Join(", ", rejected.ToArray()));
             return null;
         }
 
-        private static Version PythonVersion(string executable, string prefixArgs)
+        /// <summary>Pythons registrados no Windows (PEP 514), de instalações por usuário e para todos.</summary>
+        private static List<string> RegisteredPythons()
         {
+            List<string> found = new List<string>();
+            RegistryHive[] hives = { RegistryHive.CurrentUser, RegistryHive.LocalMachine };
+            RegistryView[] views = { RegistryView.Registry64, RegistryView.Registry32 };
+            foreach (RegistryHive hive in hives)
+            {
+                foreach (RegistryView view in views)
+                {
+                    try
+                    {
+                        using (RegistryKey baseKey = RegistryKey.OpenBaseKey(hive, view))
+                        using (RegistryKey core = baseKey.OpenSubKey(@"Software\Python\PythonCore"))
+                        {
+                            if (core == null) continue;
+                            foreach (string tag in core.GetSubKeyNames())
+                            {
+                                using (RegistryKey install = core.OpenSubKey(tag + @"\InstallPath"))
+                                {
+                                    if (install == null) continue;
+                                    string exe = install.GetValue("ExecutablePath") as string;
+                                    if (string.IsNullOrEmpty(exe))
+                                    {
+                                        string dir = install.GetValue("") as string;
+                                        if (!string.IsNullOrEmpty(dir)) exe = Path.Combine(dir, "python.exe");
+                                    }
+                                    if (string.IsNullOrEmpty(exe) || !File.Exists(exe)) continue;
+                                    string normalized = Path.GetFullPath(exe);
+                                    if (!found.Exists(delegate(string f) { return string.Equals(f, normalized, StringComparison.OrdinalIgnoreCase); }))
+                                        found.Add(normalized);
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception) { } // chave inacessível: ignora
+                }
+            }
+            return found;
+        }
+
+        private static PythonInfo ProbePython(string executable, string prefixArgs)
+        {
+            const string script =
+                "import sys, struct, sysconfig, venv; " +
+                "print('%d.%d %d %d' % (sys.version_info[0], sys.version_info[1], struct.calcsize('P') * 8, " +
+                "1 if sysconfig.get_config_var('Py_GIL_DISABLED') else 0))";
             string output;
-            int code = RunCapture(executable, (prefixArgs + " -c \"import sys; print('%d.%d' % sys.version_info[:2])\"").Trim(), 20000, out output);
+            int code = RunCapture(executable, (prefixArgs + " -c \"" + script + "\"").Trim(), 20000, out output);
+            if (code != 0) return null;
+            string[] parts = output.Trim().Split(' ');
             Version version;
-            if (code == 0 && Version.TryParse(output.Trim(), out version)) return version;
-            return null;
+            int bits;
+            if (parts.Length != 3 || !Version.TryParse(parts[0], out version) || !int.TryParse(parts[1], out bits)) return null;
+            PythonInfo info = new PythonInfo();
+            info.Version = version;
+            info.Bits = bits;
+            info.FreeThreaded = parts[2] == "1";
+            return info;
+        }
+
+        private static void InstallBundledPython()
+        {
+            if (!Environment.Is64BitOperatingSystem)
+                throw new LauncherException("O Beat Productor precisa de um Windows de 64 bits.");
+
+            string target = BundledPythonDir();
+            string downloads = Path.Combine(BeatProductorDataDir(), "downloads");
+            Directory.CreateDirectory(downloads);
+            string installer = Path.Combine(downloads, "python-" + BundledPythonVersion + "-amd64.exe");
+            string log = Path.Combine(downloads, "python-install.log");
+
+            Console.WriteLine();
+            Warn("Nenhum Python compatível (" + SupportedRange + ") foi encontrado neste computador.");
+            Step("Instalando o Python " + BundledPythonVersion + " só para o Beat Productor — automático, sem administrador.");
+            Console.WriteLine("   Pasta: " + target);
+            Console.WriteLine("   (não altera o PATH nem outros Pythons; dá para remover em Configurações > Aplicativos)");
+
+            if (!File.Exists(installer) || !string.Equals(Sha256(installer), BundledPythonSha256, StringComparison.OrdinalIgnoreCase))
+            {
+                Step("Baixando o instalador oficial de python.org ...");
+                string partial = installer + ".part";
+                Download(BundledPythonUrl, partial);
+                string hash = Sha256(partial);
+                if (!string.Equals(hash, BundledPythonSha256, StringComparison.OrdinalIgnoreCase))
+                {
+                    TryDelete(partial);
+                    throw new LauncherException(
+                        "O instalador do Python baixado não confere (download corrompido ou interceptado).\n" +
+                        "Tente de novo; se persistir, instale o Python " + BundledPythonVersion + " em " + PythonDownloadUrl + ".");
+                }
+                TryDelete(installer);
+                File.Move(partial, installer);
+            }
+
+            Step("Instalando o Python " + BundledPythonVersion + " (cerca de 1 minuto) ...");
+            string arguments =
+                "/quiet InstallAllUsers=0 PrependPath=0 Include_launcher=0 InstallLauncherAllUsers=0 " +
+                "Shortcuts=0 AssociateFiles=0 Include_doc=0 Include_test=0 Include_tcltk=0 Include_pip=1 " +
+                "TargetDir=" + Quote(target) + " /log " + Quote(log);
+            int code = RunVisible(installer, arguments, downloads);
+            if (code != 0 && code != 3010) // 3010 = sucesso, reinicialização recomendada
+            {
+                throw new LauncherException(
+                    "A instalação automática do Python falhou (código " + code + ").\n" +
+                    "  Detalhes: " + log + "\n" +
+                    "  Alternativa: instale o Python " + BundledPythonVersion + " (64 bits) em " + PythonDownloadUrl +
+                    " e abra o BeatProductor.exe de novo.");
+            }
+            TryDelete(installer);
+            Ok("Python " + BundledPythonVersion + " instalado.");
+        }
+
+        private static void Download(string url, string destination)
+        {
+            // O .NET Framework antigo usa TLS 1.0 por padrão; o python.org exige TLS 1.2+.
+            try { ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072; } catch (NotSupportedException) { }
+            try
+            {
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
+                request.Timeout = 30000;
+                request.ReadWriteTimeout = 60000;
+                request.UserAgent = "BeatProductor-launcher";
+                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                using (Stream input = response.GetResponseStream())
+                using (FileStream output = File.Create(destination))
+                {
+                    long total = response.ContentLength;
+                    long done = 0;
+                    int lastPercent = -1;
+                    byte[] buffer = new byte[81920];
+                    int read;
+                    while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
+                    {
+                        output.Write(buffer, 0, read);
+                        done += read;
+                        if (total <= 0) continue;
+                        int percent = (int)(done * 100 / total);
+                        if (percent == lastPercent) continue;
+                        lastPercent = percent;
+                        Console.Write("\r   " + percent + "% de " + (total / (1024 * 1024)) + " MB   ");
+                    }
+                }
+                Console.WriteLine();
+            }
+            catch (Exception ex)
+            {
+                if (!(ex is WebException) && !(ex is IOException)) throw;
+                Console.WriteLine();
+                TryDelete(destination);
+                throw new LauncherException(
+                    "Não consegui baixar o Python (" + ex.Message + ").\n" +
+                    "Verifique a conexão com a internet e abra o BeatProductor.exe de novo.");
+            }
         }
 
         private static void EnsureDependencies(string python, string root)
@@ -226,7 +442,8 @@ namespace BeatProductor
             }
 
             Step("Instalando dependências (precisa de internet; pode levar alguns minutos) ...");
-            string arguments = "-m pip install --disable-pip-version-check -r " + Quote(requirements);
+            // --only-binary: só pacotes prontos (nunca tenta compilar código C na máquina do usuário).
+            string arguments = "-m pip install --disable-pip-version-check --only-binary :all: --retries 5 --timeout 60 -r " + Quote(requirements);
             if (RunVisible(python, arguments, root) != 0)
                 throw new LauncherException("Falha ao instalar as dependências. Verifique a conexão com a internet e tente de novo.");
             File.WriteAllText(stamp, hash);
@@ -395,6 +612,11 @@ namespace BeatProductor
         private static string Quote(string path)
         {
             return "\"" + path + "\"";
+        }
+
+        private static void TryDelete(string path)
+        {
+            try { if (File.Exists(path)) File.Delete(path); } catch (Exception) { }
         }
 
         private static string Sha256(string path)

@@ -399,6 +399,48 @@ colcheia (4) não dividem o compasso.
 
 ---
 
+## 2026-11-19 — Instalação falhava em computadores sem o Python certo
+
+**Relato:** em alguns computadores a instalação falhava com *"could not find a version that satisfies the requirement fastapi==0.165.0"*.
+
+**Causa:** o projeto dizia "Python 3.10+", mas isso não era verdade.
+- As versões fixadas em `requirements.txt` exigem Python ≥ 3.11 (fastapi) e **≥ 3.12** (numpy 2.5, scipy 1.18).
+- O pip só lista as versões compatíveis com o Python da máquina; por isso dizia que a versão "não existe".
+- O lançador aceitava qualquer 3.10+, e um `.venv` criado com um Python velho ficava "preso" para sempre.
+
+**Faixa real, conferida no PyPI:** simulei o `pip install --only-binary` de todo o `requirements-dev.txt`, inclusive as dependências transitivas.
+- Há pacotes prontos para **3.12, 3.13 e 3.14**, em Windows x64, Linux x64 e macOS arm64.
+- No 3.15 falha, porque o pyyaml do uvicorn ainda não tem wheel.
+
+**Feito**
+- **Lançador (C#):**
+  - aceita só Python 3.12–3.14, 64 bits e não free-threaded;
+  - procura no Python próprio do app, no registro do Windows (PEP 514, por usuário e para todos), no `py -3.x` e no `python`/`python3`;
+  - recria o `.venv` se ele tiver sido criado com um Python fora da faixa;
+  - **sem Python compatível, instala um sozinho:**
+    - baixa o instalador oficial do Python 3.13.14 do python.org, forçando TLS 1.2, porque o .NET Framework antigo usa TLS 1.0;
+    - confere o **SHA-256 fixado no código**; também conferi que a assinatura Authenticode é da Python Software Foundation;
+    - instala em modo silencioso, **só para o usuário**, em `%LOCALAPPDATA%\BeatProductor\Python313`, sem administrador, sem PATH e sem o `py` launcher;
+  - pip com `--only-binary :all:`, para nunca tentar compilar código C, e com `--retries 5`;
+  - opção `--install-python` para forçar o Python próprio do app.
+- **`run.ps1` e `run.sh`:**
+  - mesma faixa, com recriação do `.venv` incompatível;
+  - sem Python compatível no Windows, chamam o `BeatProductor.exe`, que instala;
+  - no Linux/macOS, mostram como instalar (apt/brew).
+- **`pyproject.toml`:** `requires-python = ">=3.12,<3.15"`.
+- **Teste novo** (`test_python_support.py`): falha se a faixa divergir entre o lançador, os scripts e o pyproject, ou se o Python embutido sair dela.
+
+**Verificação (num clone limpo, sem mexer no `.venv` em uso)**
+- Lançador num caminho normal: achou o 3.12, criou o `.venv` e subiu o servidor.
+- **`--install-python` de verdade:** baixou 27 MB, conferiu o hash, instalou o 3.13.14, criou o `.venv`, instalou as dependências e subiu o servidor.
+  - A **suíte inteira passou no Python 3.13**, duas vezes: 96 pytest, 90 node e 41 E2E.
+  - Na primeira rodada, 3 verificações E2E oscilaram com a máquina carregada pela instalação. Não se repetiram.
+- `.venv` fora da faixa (build de teste com teto 3.12 sobre um `.venv` 3.13): avisou, recriou com o 3.12 e subiu.
+- `run.ps1` do zero, `run.ps1` com `.venv` quebrado e `run.sh`: os três subiram o servidor.
+- Depois dos testes, desinstalei o Python 3.13 de teste e apaguei a pasta dele. Esta máquina já tinha o 3.12.
+
+---
+
 ## Resumo final
 
 | Requisito | Onde |
@@ -414,4 +456,4 @@ colcheia (4) não dividem o compasso.
 | RNF02 Sem build/dependências pesadas | Vanilla JS em ES Modules + Tailwind via CDN, zero pacotes npm |
 | RNF03 MP3 limpo, sem cortes no loop | overlap-add, normalização −1 dBFS, fades de borda |
 
-**Totais:** 96 testes pytest · 90 testes `node:test` · 41 verificações E2E em navegador real.
+**Totais:** 100 testes pytest · 90 testes `node:test` · 41 verificações E2E em navegador real.

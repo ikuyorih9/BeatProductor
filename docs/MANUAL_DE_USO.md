@@ -18,7 +18,10 @@ ouve o resultado na hora no navegador e exporta um arquivo **MP3**.
 ## 1. Como abrir o aplicativo
 
 ### Pré-requisitos
-- **Python 3.10 ou mais novo** ([python.org](https://www.python.org/downloads/)) — no Windows, marque *"Add Python to PATH"* na instalação.
+- **Python 3.12, 3.13 ou 3.14 (64 bits)**.
+  - **No Windows com o `BeatProductor.exe` você não precisa instalar nada:** se o computador não tiver um Python dessa faixa, o lançador instala um sozinho (veja abaixo).
+  - Pelo terminal, ou no Linux/macOS, instale pelo [python.org](https://www.python.org/downloads/). No Windows, marque *"Add Python to PATH"*.
+  - Por que essa faixa: as versões das bibliotecas usadas (NumPy, SciPy, FastAPI…) só têm pacotes prontos para ela. Com um Python mais velho a instalação falhava com *"could not find a version that satisfies the requirement…"*.
 - Chrome, Edge ou Firefox atualizado, com acesso à internet.
 
 ### Iniciar no Windows (jeito fácil)
@@ -26,6 +29,10 @@ ouve o resultado na hora no navegador e exporta um arquivo **MP3**.
 Dê **duplo clique em `BeatProductor.exe`**, na pasta principal do projeto. Uma janela preta abre e:
 
 1. na **primeira vez**, cria o ambiente Python e baixa as dependências (precisa de internet; 1 a 3 minutos);
+   - se não houver um Python 3.12–3.14, ele **baixa o instalador oficial do python.org** e confere a integridade dele;
+   - instala o Python 3.13 **só para o Beat Productor**, em `%LOCALAPPDATA%\BeatProductor\Python313`, sem pedir administrador e sem mexer no PATH nem em outros Pythons;
+   - se quiser removê-lo, ele aparece em *Configurações > Aplicativos* como "Python 3.13";
+   - se o `.venv` tiver sido criado antes com um Python incompatível, ele é recriado sozinho;
 2. sobe o servidor numa porta livre (8000 ou a próxima disponível);
 3. abre o Beat Productor no seu navegador.
 
@@ -368,10 +375,11 @@ Os atalhos ficam desativados enquanto você digita num campo (BPM, Compassos, Lo
 
 | Sintoma | Solução |
 |---|---|
-| O exe diz "Python 3.10 ou mais novo não foi encontrado" | Instale o Python pelo link mostrado, marcando *"Add Python to PATH"*, e abra o exe de novo. |
+| *"could not find a version that satisfies the requirement…"* ao instalar | O Python usado está fora da faixa 3.12–3.14. Use o `BeatProductor.exe`, que resolve sozinho. Pelo terminal, instale um Python 3.12–3.14; os scripts recriam o `.venv` automaticamente. |
+| O exe diz que a instalação automática do Python falhou | A mensagem mostra o arquivo de log. Sem internet, conecte e abra de novo. Senão, instale o Python 3.13 (64 bits) pelo link mostrado e abra o exe de novo. Para forçar o Python próprio do app, use `BeatProductor.exe --install-python`. |
 | A janela do exe mostra um erro e fica parada | Leia a mensagem (ela diz o que fazer) e aperte Enter para fechar. |
 | O Windows/antivírus avisa sobre o exe | O lançador é compilado localmente e não tem assinatura digital. Dá para recompilá-lo a partir do código em `launcher\` com `launcher\build.ps1`, ou usar `scripts\run.ps1` no lugar. |
-| `python` não é reconhecido | Instale o Python 3.10+ marcando *"Add Python to PATH"* e abra um novo terminal. |
+| `python` não é reconhecido (terminal) | Use o `BeatProductor.exe`, ou instale o Python 3.12–3.14 marcando *"Add Python to PATH"* e abra um novo terminal. |
 | "A execução de scripts foi desabilitada" | Use exatamente `powershell -ExecutionPolicy Bypass -File scripts\run.ps1`. |
 | Porta 8000 em uso | Rode com outra porta (`scripts\run.ps1 -Port 9000`) e abra `http://127.0.0.1:9000`. |
 | Não sai som | Clique em PLAY ou numa tecla (o navegador só libera o áudio após um clique) e confira o volume. Se aparecer "Áudio indisponível", use Chrome, Edge ou Firefox atualizados. |

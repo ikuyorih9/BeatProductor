@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="Python 3.10+" src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white">
+  <img alt="Python 3.12 a 3.14" src="https://img.shields.io/badge/Python-3.12%20%7C%203.13%20%7C%203.14-3776AB?logo=python&logoColor=white">
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white">
   <img alt="NumPy" src="https://img.shields.io/badge/NumPy-013243?logo=numpy&logoColor=white">
   <img alt="SciPy" src="https://img.shields.io/badge/SciPy-8CAAE6?logo=scipy&logoColor=white">
@@ -12,7 +12,7 @@
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind%20CSS-06B6D4?logo=tailwindcss&logoColor=white">
   <img alt="HTML5" src="https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white">
   <br>
-  <img alt="Testes" src="https://img.shields.io/badge/testes-227%20passando-22c55e">
+  <img alt="Testes" src="https://img.shields.io/badge/testes-231%20passando-22c55e">
   <img alt="Lançador Windows" src="https://img.shields.io/badge/Windows-BeatProductor.exe-0078D6?logo=windows&logoColor=white">
   <img alt="Licença MIT" src="https://img.shields.io/badge/licen%C3%A7a-MIT-blue">
   <img alt="Idioma" src="https://img.shields.io/badge/idioma-pt--BR-009c3b">
@@ -61,7 +61,7 @@ criar notas, ouve na hora pelo navegador e exporta o resultado em **MP3**.
 
 ### Requisitos
 
-- **Python 3.10+** (testado com 3.12)
+- **Python 3.12, 3.13 ou 3.14 (64 bits).** No Windows, o `BeatProductor.exe` instala um sozinho se o computador não tiver (sem administrador, sem mexer no PATH)
 - Um navegador moderno (Chrome, Edge ou Firefox) com internet (o Tailwind é carregado via CDN)
 - Para rodar os testes: **Node.js 21+** e **Chrome ou Edge**
 
@@ -75,11 +75,12 @@ cd BeatProducer
 ### Executar
 
 **Windows (jeito fácil):** dê dois cliques em **`BeatProductor.exe`**, na raiz do projeto. O lançador:
-- encontra o Python e prepara o ambiente na primeira vez;
+- encontra um Python compatível ou, se não houver, baixa o instalador oficial do python.org, confere o hash e instala um Python só para o app;
+- prepara o ambiente na primeira vez;
 - escolhe uma porta livre e sobe o servidor;
 - abre o navegador.
 
-Para encerrar, feche a janela. Opções de linha de comando: `--port N`, `--no-browser`, `--no-pause`.
+Para encerrar, feche a janela. Opções de linha de comando: `--port N`, `--no-browser`, `--no-pause`, `--install-python`.
 
 **Pelo terminal:**
 
@@ -111,7 +112,7 @@ powershell -ExecutionPolicy Bypass -File scripts\test.ps1   # ou: scripts/test.s
 
 | Suíte | Quantidade |
 |---|---|
-| Backend (pytest) | 96 testes |
+| Backend (pytest) | 100 testes |
 | Frontend (`node:test`) | 90 testes |
 | E2E (Chrome/Edge headless) | 41 verificações |
 

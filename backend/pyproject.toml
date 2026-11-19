@@ -2,7 +2,7 @@
 name = "beat-productor-backend"
 version = "1.0.0"
 description = "API de síntese e exportação de áudio do Beat Productor"
-requires-python = ">=3.10"
+requires-python = ">=3.12,<3.15"  # faixa com wheels para todas as dependências fixadas
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
