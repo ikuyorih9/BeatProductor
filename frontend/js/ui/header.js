@@ -30,7 +30,7 @@ function bindNumberInput(input, store, key, { MIN, MAX }) {
   });
 }
 
-export function initHeader(store, { onExport, onClear }) {
+export function initHeader(store, { onExport, onClear, onMerge }) {
   const instrumentSelect = byId('instrument-select');
   const divisionSelect = byId('division-select');
   const bpmInput = byId('bpm-input');
@@ -39,6 +39,9 @@ export function initHeader(store, { onExport, onClear }) {
   const loopsInput = byId('loops-input');
   const exportButton = byId('export-button');
   const clearButton = byId('clear-button');
+  const toolDraw = byId('tool-draw');
+  const toolSelect = byId('tool-select');
+  const mergeButton = byId('merge-button');
 
   for (const instrument of INSTRUMENTS) {
     instrumentSelect.appendChild(createElement('option', '', { value: instrument.id, text: instrument.label }));
@@ -56,6 +59,9 @@ export function initHeader(store, { onExport, onClear }) {
 
   exportButton.addEventListener('click', () => onExport());
   clearButton.addEventListener('click', () => onClear());
+  toolDraw.addEventListener('click', () => store.set({ tool: 'draw' }));
+  toolSelect.addEventListener('click', () => store.set({ tool: 'select' }));
+  mergeButton.addEventListener('click', () => onMerge());
 
   const colorOf = Object.fromEntries(INSTRUMENTS.map((i) => [i.id, i.color]));
 
@@ -66,6 +72,10 @@ export function initHeader(store, { onExport, onClear }) {
     divisionSelect.value = state.division;
     loopCheckbox.checked = state.loop;
     loopsInput.disabled = !state.loop;
+    toolDraw.classList.toggle('is-active', state.tool !== 'select');
+    toolSelect.classList.toggle('is-active', state.tool === 'select');
+    toolDraw.setAttribute('aria-pressed', String(state.tool !== 'select'));
+    toolSelect.setAttribute('aria-pressed', String(state.tool === 'select'));
     // Não sobrescreve um campo que o usuário está editando.
     if (document.activeElement !== bpmInput) bpmInput.value = String(state.bpm);
     if (document.activeElement !== barsInput) barsInput.value = String(state.bars);
@@ -76,6 +86,15 @@ export function initHeader(store, { onExport, onClear }) {
   store.subscribe((state) => render(state));
 
   return {
+    /**
+     * @param {number} selected itens selecionados
+     * @param {number} groups linhas que UNIR juntaria (2+ itens na mesma linha)
+     */
+    setMergeState(selected, groups) {
+      mergeButton.disabled = groups === 0;
+      mergeButton.classList.toggle('btn-ready', groups > 0);
+      mergeButton.textContent = selected > 0 ? `UNIR (${selected})` : 'UNIR';
+    },
     setExporting(busy) {
       exportButton.disabled = busy;
       exportButton.textContent = busy ? 'Gerando…' : 'Exportar MP3';

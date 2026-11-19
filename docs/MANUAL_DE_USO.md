@@ -76,7 +76,7 @@ Quando aparecer *"Beat Productor rodando em http://127.0.0.1:8000"*, abra esse e
 
 ```
 ┌──────────────────────────────── CABEÇALHO ─────────────────────────────────┐
-│ Instrumento │ Divisão │ BPM │ Compassos │ ☐ Loop [n] │   Limpar │ Exportar MP3 │
+│ Instrumento│Divisão│BPM│Compassos│☐ Loop [n]│✎/⬚ UNIR│ Limpar│Exportar MP3│
 ├──────┬──────────────── régua (compassos) ──────────────────────────────────┤
 │ B5   │                                                                     │
 │ A#5  │               GRID DE MONTAGEM (piano roll)                         │
@@ -96,7 +96,8 @@ Quando aparecer *"Beat Productor rodando em http://127.0.0.1:8000"*, abra esse e
 | **BPM** | Andamento, de 40 a 240 (padrão 120). Muda em tempo real, inclusive durante a reprodução. A largura das células acompanha o BPM. |
 | **Compassos** | Tamanho da sequência (1 a 16 compassos de 4 batidas; padrão 4). Diminuir não apaga notas: elas reaparecem ao aumentar de novo. |
 | **Loop** + número | Liga a repetição contínua da reprodução. O número ao lado (1 a 32) é a quantidade de repetições no arquivo exportado. |
-| **Limpar** | Apaga as notas do instrumento selecionado (pede confirmação). |
+| **Edição** | Ferramenta do grid — **✎ Desenhar** ou **⬚ Selecionar** — e o botão **UNIR**, que junta as notas selecionadas da mesma linha (ver 4.1). |
+| **Limpar** | Apaga as notas e pausas do instrumento selecionado (pede confirmação). |
 | **Exportar MP3** | Gera o arquivo de áudio no servidor e baixa no navegador (ver seção 5). |
 
 ### 3.2 Grid de montagem
@@ -110,41 +111,75 @@ Quando aparecer *"Beat Productor rodando em http://127.0.0.1:8000"*, abra esse e
 
 - **⏮ INÍCIO** — leva o cursor ao começo (atalho **Home**).
 - **▶ PLAY / ⏸ PAUSE** — toca ou pausa a partir da posição do cursor (atalho **Espaço**).
-- **FIM ⏭** — leva o cursor ao fim da sequência (atalho **End**). Dar PLAY no fim recomeça do início.
-- À esquerda: posição em **compasso.batida** e o tempo decorrido. À direita: contagem de notas.
+- **FIM ⏭** — leva o cursor ao **fim da música**, o fim da última nota ou pausa (atalho **End**). Dar PLAY no fim recomeça do início.
+- À esquerda: posição em **compasso.batida** e o tempo decorrido. À direita: notas e pausas do instrumento atual e a duração da música.
 
 ---
 
 ## 4. Criando e ouvindo notas
 
-| Ação | Resultado |
-|---|---|
-| **Clique** numa célula vazia | Nota curta (toque solto) de 1 célula |
-| **Clique e arraste** na horizontal | Nota longa (toque contínuo) — ideal para piano e synths. Funciona arrastando para a direita ou para a esquerda. |
-| **Clique** numa nota do instrumento atual | Apaga a nota |
-| **Botão direito** numa nota | Apaga a nota |
-| **Clique na régua** (topo) | Move o cursor para aquele ponto |
+O grid tem duas ferramentas, escolhidas em **Edição** no cabeçalho: **✎ Desenhar** (padrão) e **⬚ Selecionar**.
 
-Se uma nova nota se sobrepõe a outra **do mesmo instrumento e na mesma linha**, a nova substitui a antiga.
-Para editar notas de outro instrumento, selecione-o primeiro.
+| Ação | Ferramenta | Resultado |
+|---|---|---|
+| **Clique** numa célula vazia | Desenhar | Nota curta (toque solto) de 1 célula |
+| **Clique e arraste** na horizontal | Desenhar | Nota longa (toque contínuo). Funciona arrastando para a direita ou para a esquerda. |
+| **Clique** numa nota/pausa | Desenhar | Apaga |
+| **Arraste** um retângulo | Selecionar (ou **Shift+arrastar** em qualquer uma) | Seleciona as notas/pausas que ele toca (contorno amarelo) |
+| **Clique** numa nota/pausa | Selecionar | Seleciona só ela (**Shift+clique** adiciona/remove da seleção) |
+| **Clique** no vazio | Selecionar | Limpa a seleção |
+| **Botão direito** numa célula vazia | qualquer | Cria uma **pausa** (bloco branco) de 1 célula |
+| **Botão direito** numa nota/pausa | qualquer | Apaga |
+| **Clique na régua** (topo) | qualquer | Move o cursor para aquele ponto |
 
-### 4.1 Ouvindo enquanto edita
+Se um novo bloco se sobrepõe a outro **do mesmo instrumento e na mesma linha**, o novo substitui o antigo.
+Só os blocos do instrumento selecionado podem ser editados ou selecionados.
+
+### 4.1 Unir notas (tamanhos de partitura)
+
+Como o grid tem uma célula mínima, notas de tamanhos variados (semínima, mínima, semibreve…) são feitas
+**unindo células**, como uma ligadura na partitura:
+
+1. Na ferramenta **Selecionar**, arraste um retângulo sobre as notas que quer juntar.
+2. Clique em **UNIR** no cabeçalho (ou aperte **U**). O botão mostra quantos blocos estão selecionados e só
+   fica ativo quando há algo para unir.
+
+Regras:
+- Une-se **por linha**: as notas selecionadas da mesma linha viram **uma** nota, do início da primeira ao fim da
+  última (se houver espaço vazio entre elas, ele passa a fazer parte da nota). Linhas diferentes nunca se misturam.
+- Pausas também se unem entre si, formando pausas longas. Nota e pausa não se unem.
+- Depois de unir, o resultado continua selecionado (dá para apertar **Delete** para apagar, por exemplo).
+
+### 4.2 Pausas e o FIM da música
+
+O vazio já é silêncio, mas uma **pausa explícita** (bloco branco, criado com o **botão direito** numa célula vazia)
+serve para marcar **até onde a música vai**:
+
+- O **FIM da música** é o fim do último bloco do grid, **nota ou pausa**. Ele aparece como uma **linha amarela
+  tracejada** com a etiqueta **FIM** na régua.
+- **Sem loop**, o PLAY para no FIM. **Com loop**, recomeça do início ao chegar no FIM.
+- Para ter silêncio antes de repetir, por exemplo uma pausa até o fim do compasso, coloque uma pausa ali.
+  Para "mais um tempo de pausa", estenda a pausa (ou una várias pausas).
+- O botão **FIM ⏭** e a tecla **End** levam o cursor até esse ponto, e a exportação usa o mesmo FIM em cada repetição.
+- Pausas não fazem som: a linha em que você as coloca é só onde elas aparecem.
+
+### 4.3 Ouvindo enquanto edita
 
 - **Clique numa tecla** (coluna da esquerda) para ouvir aquela nota no instrumento selecionado.
 - Ao **criar uma nota** com a reprodução parada, ela toca uma vez (pré-escuta).
 - Durante o **PLAY**, as teclas acendem quando suas notas soam e a tela rola acompanhando o cursor.
 - O primeiro clique/PLAY libera o áudio (exigência dos navegadores). Se não ouvir nada, confira o volume do sistema.
 
-### 4.2 Os instrumentos
+### 4.4 Os instrumentos
 
 | Instrumento | Timbre | Duração da nota |
 |---|---|---|
 | **Piano Acústico** | Percussivo, decai naturalmente (mais rápido nos agudos) | Soltar antes encurta; notas longas deixam o som decair |
-| **Bateria** | Bumbo, caixa e hi-hats (ver 4.3) | Ignorada (som *one-shot*) |
+| **Bateria** | Bumbo, caixa e hi-hats (ver 4.5) | Ignorada (som *one-shot*) |
 | **Lofi Synth** | Abafado e quente, com leve vibrato | Sustenta enquanto durar a nota |
 | **Lead Synth** | Brilhante (dente-de-serra), para melodias | Sustenta enquanto durar a nota |
 
-### 4.3 Bateria
+### 4.5 Bateria
 
 Com **Bateria** selecionada, as teclas mostram a peça tocada em cada linha (o padrão se repete a cada 4 notas):
 
@@ -160,8 +195,9 @@ Com **Bateria** selecionada, as teclas mostram a peça tocada em cada linha (o p
 ## 5. Loop e exportação
 
 ### 5.1 Loop na reprodução
-Com **Loop** marcado, o PLAY repete a sequência indefinidamente (até você pausar).
-Sem loop, a reprodução para sozinha no fim e as últimas notas terminam de soar naturalmente.
+Com **Loop** marcado, o PLAY recomeça do início toda vez que chega ao **FIM da música** (fim da última nota ou
+pausa), indefinidamente, até você pausar. Sem loop, a reprodução para no FIM e as últimas notas terminam de soar
+naturalmente. Para deixar silêncio antes de repetir, use pausas (seção 4.2).
 
 ### 5.2 Exportar MP3
 1. (Opcional) Marque **Loop** e defina a **quantidade de repetições** (1 a 32).
@@ -169,13 +205,14 @@ Sem loop, a reprodução para sozinha no fim e as últimas notas terminam de soa
 3. O navegador baixa um arquivo `beat-productor-AAAAMMDD-HHMMSS.mp3` (MP3 192 kbps, 44,1 kHz).
 
 O que entra no arquivo:
-- **Sem loop:** uma passada da sequência. **Com loop:** a sequência repetida *n* vezes.
+- Uma passada vai do início até o **FIM da música** (fim da última nota ou pausa), exatamente como no PLAY.
+- **Sem loop:** uma passada. **Com loop:** a passada repetida *n* vezes.
 - As notas que passam do fim de uma repetição continuam soando sobre o início da próxima — **sem cortes** nas emendas.
 - Depois da última repetição, a cauda das notas (release) é preservada por até 2 s.
 - O volume é normalizado automaticamente para não distorcer (pico em −1 dBFS).
 
 Limites: o arquivo final pode ter até **10 minutos** (600 s). Se passar disso, o app avisa antes de exportar —
-reduza os loops ou os compassos, ou aumente o BPM. Uma sequência sem notas não é exportada.
+reduza os loops ou os compassos, ou aumente o BPM. Uma sequência sem notas (só pausas ou vazia) não é exportada.
 
 ---
 
@@ -196,7 +233,12 @@ Ao reabrir a página, o projeto volta como estava e aparece a mensagem *"Projeto
 |---|---|
 | **Espaço** | Play / Pause |
 | **Home** | Início |
-| **End** | Fim |
+| **End** | Fim da música (fim da última nota/pausa) |
+| **D** | Ferramenta Desenhar |
+| **S** | Ferramenta Selecionar |
+| **U** | Unir a seleção |
+| **Delete** / **Backspace** | Apagar a seleção |
+| **Esc** | Limpar a seleção |
 
 Os atalhos ficam desativados enquanto você digita num campo (BPM, Compassos, Loops).
 

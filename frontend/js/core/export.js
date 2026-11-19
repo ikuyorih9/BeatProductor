@@ -19,7 +19,8 @@ export function buildExportPayload(sequence, { bpm, loop, loops }, format = 'mp3
     return { ok: false, error: `Sequência com notas demais (${events.length}; máximo ${EXPORT_LIMITS.MAX_EVENTS}).` };
   }
 
-  const length = ticksToSeconds(sequence.lengthTicks, bpm);
+  // Uma passada vai até o FIM da música (fim da última nota ou pausa), igual ao play.
+  const length = ticksToSeconds(sequence.endTick(), bpm);
   const repetitions = loop ? loops : 1;
   const total = length * repetitions;
   if (total > EXPORT_LIMITS.MAX_TOTAL_SECONDS) {

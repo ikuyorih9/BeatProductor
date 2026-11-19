@@ -51,8 +51,8 @@ Roda, em sequência: pytest (backend), `node:test` + verificação de sintaxe (f
 | Suíte | Quantidade |
 |---|---|
 | Backend (pytest) | 88 testes |
-| Frontend (`node:test`) | 48 testes |
-| E2E (Chrome/Edge headless) | 23 verificações |
+| Frontend (`node:test`) | 62 testes |
+| E2E (Chrome/Edge headless) | 29 verificações |
 
 ## Estrutura de diretórios
 
@@ -68,11 +68,12 @@ BeatProductor/
 │   │   │   ├── music.js      #   notas, MIDI, frequências, bateria
 │   │   │   ├── timing.js     #   ticks ↔ segundos, divisões, formatação
 │   │   │   ├── layout.js     #   geometria do grid
-│   │   │   ├── sequence.js   #   modelo das notas
+│   │   │   ├── sequence.js   #   modelo de notas e pausas (unir, fim da música)
 │   │   │   ├── store.js      #   estado da aplicação
 │   │   │   ├── schedule.js   #   notas numa janela de tempo (agendamento)
 │   │   │   ├── export.js     #   pedido de exportação + pré-validação
 │   │   │   ├── project.js    #   projeto salvo (serialização/saneamento)
+│   │   │   ├── selection.js  #   seleção por retângulo e o que UNIR juntaria
 │   │   │   └── transport.js  #   relógio musical (play/pause/seek/loop)
 │   │   ├── audio/            # Web Audio API
 │   │   │   ├── engine.js     #   AudioContext, master, vozes

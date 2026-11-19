@@ -18,7 +18,7 @@ test('payload de exportação segue o contrato da API', () => {
   assert.equal(result.ok, true);
   assert.deepEqual(result.payload, {
     bpm: 120,
-    length: 8, // 4 compassos × 4 batidas × 0,5 s
+    length: 0.5, // uma passada vai até o fim da última nota (12 ticks = 1 batida = 0,5 s)
     loop: true,
     loops: 3,
     format: 'mp3',
@@ -33,12 +33,28 @@ test('exportação sem notas é bloqueada com mensagem clara', () => {
 });
 
 test('exportação longa demais é bloqueada antes de chamar o servidor', () => {
-  // 16 compassos a 40 BPM = 96 s; × 32 loops = 3072 s > 600 s
-  const result = buildExportPayload(sequenceWithNote(16 * 48), settings({ bpm: 40, loop: true, loops: 32 }));
+  // Pausa no último tick de 16 compassos a 40 BPM = 96 s; × 32 loops = 3072 s > 600 s
+  const seq = sequenceWithNote(16 * 48);
+  seq.addRest({ instrument: 'piano', midi: 60, start: 16 * 48 - 3, duration: 3 });
+  const result = buildExportPayload(seq, settings({ bpm: 40, loop: true, loops: 32 }));
   assert.equal(result.ok, false);
   assert.match(result.error, /máximo 600 s/);
   // Sem loop o mesmo projeto passa.
-  assert.equal(buildExportPayload(sequenceWithNote(16 * 48), settings({ bpm: 40, loop: false, loops: 32 })).ok, true);
+  assert.equal(buildExportPayload(seq, settings({ bpm: 40, loop: false, loops: 32 })).ok, true);
+});
+
+test('pausas estendem a passada exportada, mas não viram eventos', () => {
+  const seq = sequenceWithNote();
+  seq.addRest({ instrument: 'drums', midi: 50, start: 36, duration: 12 }); // pausa até o fim do compasso
+  const { payload } = buildExportPayload(seq, settings({ bpm: 120 }));
+  assert.equal(payload.length, 2); // 48 ticks = 1 compasso = 2 s
+  assert.equal(payload.events.length, 1);
+});
+
+test('só pausas não podem ser exportadas', () => {
+  const seq = new Sequence(192);
+  seq.addRest({ instrument: 'piano', midi: 60, start: 0, duration: 12 });
+  assert.equal(buildExportPayload(seq, settings()).ok, false);
 });
 
 test('todos os eventos ficam dentro do padrão (time < length) em qualquer divisão', () => {

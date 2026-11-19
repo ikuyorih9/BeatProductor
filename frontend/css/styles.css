@@ -43,6 +43,19 @@ html, body { height: 100%; }
 .btn-primary:hover:not(:disabled) { background: #0ea5e9; }
 .btn-secondary { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; }
 .btn-secondary:hover:not(:disabled) { background: #334155; }
+.btn-secondary:disabled { cursor: not-allowed; opacity: .4; }
+.btn-ready { border-color: #facc15; color: #fde68a; }
+
+/* ---------- Seletor de ferramenta (segmented) ---------- */
+.segmented { display: flex; height: 36px; border: 1px solid #334155; border-radius: 6px; overflow: hidden; }
+.segmented-btn {
+  padding: 0 10px; font-size: 13px; font-weight: 600; background: #1e293b; color: #94a3b8;
+  white-space: nowrap; transition: background-color .12s, color .12s;
+}
+.segmented-btn + .segmented-btn { border-left: 1px solid #334155; }
+.segmented-btn:hover { color: #e2e8f0; }
+.segmented-btn:focus-visible { outline: 2px solid #0ea5e9; outline-offset: -2px; }
+.segmented-btn.is-active { background: #0369a1; color: #fff; }
 
 /* ---------- Teclas do piano (coluna esquerda) ---------- */
 .keys-width { width: var(--keys-width); min-width: var(--keys-width); }
@@ -87,6 +100,33 @@ html, body { height: 100%; }
   pointer-events: none; background: rgba(56, 189, 248, .35);
   border: 1px dashed #7dd3fc; z-index: 5;
 }
+/* Pausa: bloco branco, como uma tecla branca */
+.note-rest {
+  background: #f1f5f9; border: 1px solid #94a3b8;
+  box-shadow: inset 0 -2px 0 rgba(15, 23, 42, .18);
+}
+.note-other.note-rest { background: #cbd5e1; }
+/* Item selecionado */
+.note.is-selected {
+  outline: 2px solid #facc15; outline-offset: 1px; z-index: 3;
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, .25), inset 0 -2px 0 rgba(0, 0, 0, .25);
+}
+/* Retângulo de seleção */
+.selection-box {
+  position: absolute; pointer-events: none; z-index: 6;
+  border: 1px solid #facc15; background: rgba(250, 204, 21, .12);
+}
+/* Fim da música */
+.end-marker {
+  position: absolute; top: 0; bottom: 0; left: -1px; width: 0;
+  border-left: 2px dashed #facc15; pointer-events: none; z-index: 4; opacity: .8;
+}
+.end-flag {
+  position: absolute; top: 0; left: 0; height: 100%; padding: 0 4px; margin-left: 2px;
+  display: flex; align-items: center; font-size: 9px; font-weight: 700; letter-spacing: .08em;
+  color: #0f172a; background: #facc15; border-radius: 0 3px 3px 0; pointer-events: none; z-index: 1;
+}
+.end-flag.hidden, .end-marker.hidden { display: none; }
 
 /* ---------- Cursor de reprodução ---------- */
 .playhead {

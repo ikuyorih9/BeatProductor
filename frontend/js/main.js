@@ -8,9 +8,10 @@ import { buildExportPayload } from './core/export.js';
 import { computeLayout } from './core/layout.js';
 import { buildRange } from './core/music.js';
 import { defaultSettings } from './core/project.js';
+import { countMergeableGroups } from './core/selection.js';
 import { Sequence } from './core/sequence.js';
 import { createStore } from './core/store.js';
-import { lengthInTicks, ticksToSeconds } from './core/timing.js';
+import { formatClock, lengthInTicks, ticksToSeconds } from './core/timing.js';
 import { Transport } from './core/transport.js';
 import { downloadBlob, requestExport } from './services/api.js';
 import { createAutosave, loadProject, saveProject } from './services/storage.js';
@@ -26,7 +27,8 @@ const INSTRUMENT_LABEL = Object.fromEntries(INSTRUMENTS.map((i) => [i.id, i.labe
 
 // ---------------------------------------------------------------- estado (restaurado do último uso, se houver)
 const saved = loadProject();
-const store = createStore(saved ? saved.settings : defaultSettings());
+// `tool` (desenhar/selecionar) não é salva: o app sempre abre desenhando.
+const store = createStore({ ...(saved ? saved.settings : defaultSettings()), tool: 'draw' });
 const range = buildRange(LOWEST_MIDI, OCTAVES);
 const sequence = new Sequence(lengthInTicks(store.get().bars));
 if (saved) sequence.loadJSON(saved.notes);
@@ -45,7 +47,7 @@ const clock = engine ? () => engine.now() : () => performance.now() / 1000;
 const transport = new Transport({
   now: clock,
   bpm: store.get().bpm,
-  lengthTicks: sequence.lengthTicks,
+  lengthTicks: sequence.endTick(), // o play vai até o fim da última nota/pausa
   loop: store.get().loop,
 });
 
@@ -56,6 +58,7 @@ const autosave = createAutosave(() => saveProject(store.get(), sequence));
 const header = initHeader(store, {
   onExport: () => exportSequence(),
   onClear: () => clearCurrentInstrument(),
+  onMerge: () => mergeSelection(),
 });
 
 const keys = new PianoKeys(byId('piano-keys'), range, {
@@ -70,6 +73,9 @@ const grid = new PianoRollGrid({
     notes: byId('notes-layer'),
     ghost: byId('ghost-note'),
     ruler: byId('ruler'),
+    selectionBox: byId('selection-box'),
+    endMarker: byId('end-marker'),
+    endFlag: byId('end-flag'),
   },
   range,
   sequence,
@@ -79,10 +85,15 @@ const grid = new PianoRollGrid({
     onSequenceChanged();
     if (!transport.playing) previewNote(midi, Math.min(ticksToSeconds(duration, store.get().bpm), 1.5));
   },
+  onAddRest: ({ midi, start, duration }) => {
+    sequence.addRest({ instrument: store.get().instrument, midi, start, duration });
+    onSequenceChanged();
+  },
   onRemove: (id) => {
     if (sequence.removeNote(id)) onSequenceChanged();
   },
   onSeek: (tick) => seek(tick),
+  onSelectionChange: () => updateMergeState(),
 });
 
 const keysWidth = byId('piano-keys').getBoundingClientRect().width || 88;
@@ -130,7 +141,7 @@ if (engine) {
 const controls = initTransportControls({
   onStart: () => seek(0),
   onToggle: () => togglePlayback(),
-  onEnd: () => seek(sequence.lengthTicks),
+  onEnd: () => seek(sequence.endTick()),
 });
 
 // ---------------------------------------------------------------- ações
@@ -165,26 +176,64 @@ function seek(tick) {
 }
 
 function updateStatus() {
-  const { instrument } = store.get();
-  const all = sequence.activeNotes();
-  const own = all.filter((n) => n.instrument === instrument).length;
-  controls.setStatus(`${INSTRUMENT_LABEL[instrument]}: ${own} nota(s) · total: ${all.length}`);
+  const { instrument, bpm } = store.get();
+  const own = sequence.activeItems().filter((n) => n.instrument === instrument);
+  const notes = own.filter((n) => n.kind === 'note').length;
+  const rests = own.length - notes;
+  const duration = sequence.hasItems ? ` · duração ${formatClock(ticksToSeconds(sequence.endTick(), bpm))}` : '';
+  controls.setStatus(`${INSTRUMENT_LABEL[instrument]}: ${notes} nota(s), ${rests} pausa(s)${duration}`);
+}
+
+/** O transporte toca até o FIM da música (fim da última nota ou pausa). */
+function syncLength() {
+  transport.setLength(sequence.endTick());
 }
 
 function onSequenceChanged() {
+  syncLength();
   grid.renderNotes();
   updateStatus();
+  updateMergeState();
   autosave();
+}
+
+function updateMergeState() {
+  const selected = grid.getSelection();
+  header.setMergeState(selected.length, countMergeableGroups(sequence.notes, selected));
+}
+
+function mergeSelection() {
+  const selected = grid.getSelection();
+  if (selected.length < 2) {
+    showToast('Selecione 2 ou mais blocos na mesma linha (ferramenta Selecionar ou Shift+arrastar).');
+    return;
+  }
+  const { merged, ids } = sequence.mergeItems(selected);
+  if (merged === 0) {
+    showToast('Só é possível unir blocos da mesma linha (mesma nota). Notas com pausas não se unem.', 'error');
+    return;
+  }
+  onSequenceChanged();
+  grid.setSelection(ids);
+  showToast(merged === 1 ? 'Blocos unidos.' : `${merged} linhas unidas.`, 'success');
+}
+
+function deleteSelection() {
+  const selected = grid.getSelection();
+  if (selected.length === 0) return;
+  sequence.removeNotes(selected);
+  grid.clearSelection();
+  onSequenceChanged();
 }
 
 function clearCurrentInstrument() {
   const { instrument } = store.get();
-  const count = sequence.activeNotes().filter((n) => n.instrument === instrument).length;
+  const count = sequence.activeItems().filter((n) => n.instrument === instrument).length;
   if (count === 0) {
-    showToast(`Não há notas de ${INSTRUMENT_LABEL[instrument]} para apagar.`);
+    showToast(`Não há notas nem pausas de ${INSTRUMENT_LABEL[instrument]} para apagar.`);
     return;
   }
-  if (!window.confirm(`Apagar ${count} nota(s) de ${INSTRUMENT_LABEL[instrument]}?`)) return;
+  if (!window.confirm(`Apagar ${count} nota(s)/pausa(s) de ${INSTRUMENT_LABEL[instrument]}?`)) return;
   sequence.clear(instrument);
   onSequenceChanged();
   showToast('Notas apagadas.');
@@ -224,15 +273,16 @@ store.subscribe((state, _previous, changed) => {
   if (has('bpm')) transport.setBpm(state.bpm);
   if (has('bars')) {
     sequence.setLength(lengthInTicks(state.bars));
-    transport.setLength(sequence.lengthTicks);
+    syncLength();
   }
   if (has('loop')) transport.setLoop(state.loop);
   if (has('bpm') || has('division') || has('bars')) relayout();
   if (has('instrument')) {
     keys.render(state.instrument);
+    grid.clearSelection(); // a seleção vale só para o instrumento atual
     grid.renderNotes();
   }
-  if (has('instrument') || has('bars')) updateStatus();
+  if (has('instrument') || has('bars') || has('bpm')) updateStatus();
   autosave();
 });
 
@@ -270,7 +320,18 @@ window.addEventListener('keydown', (event) => {
     seek(0);
   } else if (event.code === 'End') {
     event.preventDefault();
-    seek(sequence.lengthTicks);
+    seek(sequence.endTick());
+  } else if (event.code === 'Delete' || event.code === 'Backspace') {
+    event.preventDefault();
+    deleteSelection();
+  } else if (event.code === 'Escape') {
+    grid.clearSelection();
+  } else if (event.code === 'KeyU') {
+    mergeSelection();
+  } else if (event.code === 'KeyS') {
+    store.set({ tool: 'select' });
+  } else if (event.code === 'KeyD') {
+    store.set({ tool: 'draw' });
   }
 });
 window.addEventListener('keyup', (event) => {
@@ -290,12 +351,13 @@ function frame() {
 // ---------------------------------------------------------------- inicialização
 // Ponto de inspeção para depuração no console e para os testes E2E.
 window.__beatProductor = {
-  store, sequence, transport, range, audio: engine, getLayout: () => layout,
+  store, sequence, transport, range, grid, audio: engine, getLayout: () => layout,
 };
 
 keys.render(store.get().instrument);
 relayout();
 updateStatus();
+updateMergeState();
 controls.setPlaying(false);
 window.requestAnimationFrame(frame);
 if (audioError) showToast(`Áudio indisponível: ${audioError.message}`, 'error');

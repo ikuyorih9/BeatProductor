@@ -204,6 +204,52 @@ em cada fase do roadmap (ver [especificação](especificacao/especificacao-mvp.m
 
 ---
 
+## 2026-11-19 — Unir notas, pausas e fim da música
+
+**Pedido**
+- Unir notas para obter tamanhos variados, como numa partitura, usando uma seleção por arraste e um botão UNIR no cabeçalho.
+- Botão direito numa célula vazia cria uma pausa (bloco branco).
+- O play deve parar no fim da última nota, ou recomeçar dali se o loop estiver ativo.
+
+**Feito**
+- **Modelo:** cada item da sequência ganhou `kind` (`'note'` | `'rest'`). As pausas não soam e não viram eventos
+  na exportação, mas contam para o fim. Novos métodos: `addRest`, `removeNotes`, `mergeItems`, `activeItems`, `endTick`, `hasItems`.
+  Projetos salvos antes (sem `kind`) carregam como notas.
+- **Ferramentas** no cabeçalho (*Edição*): **✎ Desenhar** / **⬚ Selecionar** + botão **UNIR** (mostra a contagem e só
+  acende quando há o que unir). Shift+arrastar seleciona em qualquer ferramenta.
+- **Seleção por retângulo** (`core/selection.js`, puro e testado), contorno amarelo nos selecionados, Shift+clique
+  para adicionar/remover, clique no vazio limpa.
+- **UNIR** (`Sequence.mergeItems`): por linha (instrumento + altura + tipo), do início do primeiro ao fim do último;
+  o resultado continua selecionado.
+- **Pausa** com botão direito na célula vazia; botão direito num bloco apaga (em qualquer ferramenta).
+- **Fim da música** = fim do último item (nota ou pausa): o transporte usa esse comprimento, então o play para ali
+  (sem loop) ou recomeça (com loop). O botão FIM/End vai até ele, e há um marcador amarelo tracejado com etiqueta **FIM** na régua.
+- **Atalhos:** D (desenhar), S (selecionar), U (unir), Delete/Backspace (apagar seleção), Esc (limpar seleção).
+- Rodapé mostra notas, pausas e duração da música.
+- Correções visuais: cabeçalho compactado para caber numa linha a 1400 px; o fundo da régua agora acompanha
+  a rolagem horizontal (antes terminava no meio — defeito anterior a esta mudança).
+
+**Decisões**
+- **UNIR por linha** (como a ligadura da partitura, que liga notas de mesma altura). Selecionar várias linhas e
+  unir junta cada linha separadamente; notas não se unem a pausas. Se houver espaço vazio entre as notas
+  selecionadas, ele passa a fazer parte da nota longa — permite "esticar" uma nota selecionando o início e o fim.
+- **Ferramenta explícita** em vez de só uma tecla modificadora: o arraste no modo Desenhar continua criando notas
+  longas, então a seleção precisava de um modo próprio. Shift+arrastar fica como atalho.
+- **A exportação também vai até o fim da música**, não até o fim do grid: assim o loop exportado tem exatamente a
+  mesma duração do loop tocado no navegador. Para estender a passada (silêncio antes de repetir), usa-se uma pausa.
+- Sem nenhum item no grid, o fim vale o tamanho do grid (o cursor continua utilizável num projeto vazio).
+- A ferramenta ativa não é salva: o app sempre abre em Desenhar, para um clique nunca "não fazer nada" por engano.
+
+**Verificação**
+- 62 testes unitários (+14): pausas, compatibilidade com projetos antigos, fim da música, UNIR (vizinhas, com
+  lacuna, várias linhas, instrumentos/tipos diferentes, nada a unir), seleção por retângulo, exportação estendida por pausa.
+- **E2E 29/29** (+6): FIM no fim da última nota; play sem loop para em ~0,5 s em vez de 4 s; loop nunca passa do
+  fim da última nota; botão direito cria pausa branca que estende o fim e o loop; botão direito apaga a pausa;
+  retângulo + UNIR transformam 4 células numa nota de 12 ticks; clique no modo Selecionar não apaga; Esc e Delete.
+- 88 testes do backend inalterados e passando.
+
+---
+
 ## Resumo final
 
 | Requisito | Onde |
@@ -219,4 +265,4 @@ em cada fase do roadmap (ver [especificação](especificacao/especificacao-mvp.m
 | RNF02 Sem build/dependências pesadas | Vanilla JS em ES Modules + Tailwind via CDN, zero pacotes npm |
 | RNF03 MP3 limpo, sem cortes no loop | overlap-add, normalização −1 dBFS, fades de borda |
 
-**Totais:** 88 testes pytest · 48 testes `node:test` · 23 verificações E2E em navegador real.
+**Totais:** 88 testes pytest · 62 testes `node:test` · 29 verificações E2E em navegador real.

@@ -64,6 +64,17 @@ async function mouse(type, x, y, buttons = 0) {
   });
 }
 
+async function rightClick(x, y) {
+  await mouse('mouseMoved', x, y);
+  await page('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'right', buttons: 2, clickCount: 1 });
+  await page('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'right', buttons: 0, clickCount: 1 });
+}
+
+async function pressKey(code, key, keyCode) {
+  await page('Input.dispatchKeyEvent', { type: 'keyDown', code, key, windowsVirtualKeyCode: keyCode });
+  await page('Input.dispatchKeyEvent', { type: 'keyUp', code, key, windowsVirtualKeyCode: keyCode });
+}
+
 async function click(x, y) {
   await mouse('mouseMoved', x, y);
   await mouse('mousePressed', x, y, 1);
@@ -241,9 +252,14 @@ await check('PLAY move o cursor, PAUSE congela', async () => {
   assert.equal(await evaluate('window.__beatProductor.transport.tick'), t2);
 });
 
-await check('INÍCIO e FIM posicionam o cursor', async () => {
+const END = 'window.__beatProductor.sequence.endTick()';
+
+await check('INÍCIO e FIM posicionam o cursor (FIM = fim da última nota)', async () => {
   await clickElement('#end-button');
-  assert.equal(await evaluate('window.__beatProductor.transport.tick'), await evaluate('window.__beatProductor.sequence.lengthTicks'));
+  const end = await evaluate(END);
+  assert.equal(end, 24, 'a última nota termina no tick 24');
+  assert.equal(await evaluate('window.__beatProductor.transport.tick'), end);
+  assert.equal(await evaluate('document.getElementById("end-marker").classList.contains("hidden")'), false);
   await clickElement('#start-button');
   assert.equal(await evaluate('window.__beatProductor.transport.tick'), 0);
   await waitFor('document.getElementById("position-display").textContent === "1.1"', 2000, 'mostrador 1.1');
@@ -258,30 +274,115 @@ await check('atalho Espaço alterna play/pause', async () => {
   await waitFor('!window.__beatProductor.transport.playing', 3000, 'pausado via espaço');
 });
 
-await check('sem loop, a reprodução termina sozinha no fim', async () => {
-  await setControl('bars-input', 1);
-  await setControl('bpm-input', 240); // 1 compasso = 1 s
+await check('sem loop, o play para no fim da ÚLTIMA NOTA (não no fim do grid)', async () => {
+  await setControl('bpm-input', 240); // 24 ticks = 0,5 s
   await clickElement('#start-button');
+  const started = Date.now();
   await clickElement('#play-button');
   await waitFor('!window.__beatProductor.transport.playing', 4000, 'fim da reprodução');
-  assert.equal(await evaluate('window.__beatProductor.transport.tick'), 48);
+  assert.ok(Date.now() - started < 1500, 'deveria parar em ~0,5 s, não em 4 s (fim do grid)');
+  assert.equal(await evaluate('window.__beatProductor.transport.tick'), 24);
   await setControl('bpm-input', 120);
-  await setControl('bars-input', 4);
 });
 
-await check('com loop, a reprodução continua após o fim', async () => {
-  await setControl('bars-input', 1);
+await check('com loop, recomeça no fim da última nota', async () => {
   await setControl('bpm-input', 240);
   await setControl('loop-checkbox', true);
   await clickElement('#start-button');
   await clickElement('#play-button');
-  await sleep(1500);
+  let maxTick = 0;
+  for (let i = 0; i < 15; i += 1) {
+    maxTick = Math.max(maxTick, await evaluate('window.__beatProductor.transport.tick'));
+    await sleep(100);
+  }
   assert.equal(await evaluate('window.__beatProductor.transport.playing'), true);
-  assert.ok(await evaluate('window.__beatProductor.transport.absoluteTick') > 48);
+  assert.ok(await evaluate('window.__beatProductor.transport.absoluteTick') > 48, 'deveria ter dado 2+ voltas');
+  assert.ok(maxTick < 24, `o cursor nunca passa do fim da última nota (máx ${maxTick})`);
   await clickElement('#play-button');
   await setControl('loop-checkbox', false);
   await setControl('bpm-input', 120);
-  await setControl('bars-input', 4);
+});
+
+await check('botão direito numa célula vazia cria PAUSA (bloco branco) que estende o fim', async () => {
+  const p = await cellPoint(20, 15); // tick 45–48: pausa até o fim do 1º compasso
+  await rightClick(p.x, p.y);
+  await waitFor(`${notesOf('drums')}.some(n => n.kind === 'rest')`, 2000, 'pausa criada');
+  const rest = await evaluate(`${notesOf('drums')}.find(n => n.kind === 'rest')`);
+  assert.deepEqual([rest.start, rest.duration], [45, 3]);
+  assert.equal(await evaluate('document.querySelectorAll(".note-own.note-rest").length'), 1);
+  const bg = await evaluate('getComputedStyle(document.querySelector(".note-rest")).backgroundColor');
+  assert.equal(bg, 'rgb(241, 245, 249)');
+  assert.equal(await evaluate(END), 48);
+  await clickElement('#end-button');
+  assert.equal(await evaluate('window.__beatProductor.transport.tick'), 48);
+  assert.equal(await evaluate('window.__beatProductor.transport.lengthTicks'), 48);
+});
+
+await check('a pausa faz o loop durar até ela (silêncio antes de recomeçar)', async () => {
+  await setControl('bpm-input', 240); // 48 ticks = 1 s
+  await setControl('loop-checkbox', true);
+  await clickElement('#start-button');
+  await clickElement('#play-button');
+  await sleep(750);
+  const tick = await evaluate('window.__beatProductor.transport.tick');
+  assert.ok(tick > 24 && tick < 48, `deveria estar no trecho de pausa (tick ${tick})`);
+  await clickElement('#play-button');
+  await setControl('loop-checkbox', false);
+  await setControl('bpm-input', 120);
+});
+
+await check('botão direito na pausa apaga', async () => {
+  const p = await cellPoint(20, 15);
+  await rightClick(p.x, p.y);
+  await waitFor(`!${notesOf('drums')}.some(n => n.kind === 'rest')`, 2000, 'pausa apagada');
+  assert.equal(await evaluate(END), 24);
+});
+
+await check('Selecionar (retângulo) + UNIR juntam células numa nota longa', async () => {
+  for (const cell of [0, 1, 2, 3]) {
+    const p = await cellPoint(16, cell);
+    await click(p.x, p.y);
+  }
+  const row = `${notesOf('drums')}.filter(n => n.midi === window.__beatProductor.range[16])`;
+  await waitFor(`${row}.length === 4`, 2000, '4 notas');
+  assert.equal(await evaluate('document.getElementById("merge-button").disabled'), true);
+
+  await clickElement('#tool-select');
+  assert.equal(await evaluate('window.__beatProductor.store.get().tool'), 'select');
+  assert.ok(await evaluate('document.getElementById("tool-select").classList.contains("is-active")'));
+  const a = await cellPoint(15, 0);
+  const b = await cellPoint(17, 3);
+  await drag(a.x - 8, a.y, b.x, b.y); // retângulo cobrindo as 4 notas (linhas 15–17)
+  await waitFor('document.querySelectorAll(".note.is-selected").length === 4', 2000, '4 selecionadas');
+  assert.equal(await evaluate('document.getElementById("merge-button").disabled'), false);
+  assert.equal(await evaluate('document.getElementById("merge-button").textContent'), 'UNIR (4)');
+
+  await clickElement('#merge-button');
+  await waitFor(`${row}.length === 1`, 2000, 'notas unidas');
+  const merged = await evaluate(`${row}[0]`);
+  assert.deepEqual([merged.start, merged.duration], [0, 12]);
+  assert.equal(await evaluate('document.querySelectorAll(".note.is-selected").length'), 1);
+});
+
+await check('no modo Selecionar, clicar numa nota NÃO apaga; Esc limpa a seleção', async () => {
+  const p = await cellPoint(16, 1);
+  await click(p.x, p.y);
+  const row = `${notesOf('drums')}.filter(n => n.midi === window.__beatProductor.range[16])`;
+  assert.equal(await evaluate(`${row}.length`), 1);
+  await waitFor('document.querySelectorAll(".note.is-selected").length === 1', 2000, 'selecionada');
+  await pressKey('Escape', 'Escape', 27);
+  await waitFor('document.querySelectorAll(".note.is-selected").length === 0', 2000, 'seleção limpa');
+});
+
+await check('Delete apaga a seleção', async () => {
+  const p = await cellPoint(16, 1);
+  await click(p.x, p.y);
+  await waitFor('document.querySelectorAll(".note.is-selected").length === 1', 2000, 'selecionada');
+  await pressKey('Delete', 'Delete', 46);
+  const row = `${notesOf('drums')}.filter(n => n.midi === window.__beatProductor.range[16])`;
+  await waitFor(`${row}.length === 0`, 2000, 'nota apagada');
+  await clickElement('#tool-draw');
+  assert.equal(await evaluate('window.__beatProductor.store.get().tool'), 'draw');
 });
 
 if (await evaluate('typeof window.__beatProductor.audio === "object"')) {
