@@ -5,7 +5,7 @@
  *   bpm = 120
  *   compasso = 4/4
  *   ...
- *   [volume]             mixer (0–150 %)
+ *   [volume]             mixer (0–200 %)
  *   piano = 100
  *   [piano]              uma seção por instrumento; uma nota por linha:
  *   1.1      C4   1          posição (compasso.tempo[+fração])  nota  duração (em tempos)  [pausa]

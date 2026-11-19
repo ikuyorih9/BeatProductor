@@ -5,6 +5,7 @@ import { buildExportPayload } from '../js/core/export.js';
 import { defaultSettings } from '../js/core/project.js';
 import { clampMove, copyItems, countSplittable, pasteItems } from '../js/core/selection.js';
 import { Sequence } from '../js/core/sequence.js';
+import { volumeToGain } from '../js/core/volume.js';
 
 const note = (midi, start, duration, extra = {}) => ({ instrument: 'piano', midi, start, duration, ...extra });
 const spans = (seq) => seq.notes
@@ -115,12 +116,23 @@ test('colar várias vezes repete o trecho em sequência', () => {
 });
 
 // ------------------------------------------------------------------ volume na exportação
-test('o volume de cada instrumento vai como gain dos eventos', () => {
+test('curva do volume é perceptiva: 200% reforça +12 dB, 50% atenua −12 dB', () => {
+  assert.equal(volumeToGain(0), 0);
+  assert.equal(volumeToGain(100), 1);
+  assert.equal(volumeToGain(200), 4);
+  const db = (percent) => 20 * Math.log10(volumeToGain(percent));
+  assert.ok(Math.abs(db(200) - 12.04) < 0.01);
+  assert.ok(Math.abs(db(50) + 12.04) < 0.01);
+  assert.ok(db(150) > 7); // antes (linear) 150% eram só +3,5 dB
+});
+
+test('o volume de cada instrumento vai como gain dos eventos (na curva perceptiva)', () => {
   const seq = new Sequence(192);
   seq.addNote(note(60, 0, 12));
   seq.addNote({ instrument: 'lead', midi: 72, start: 0, duration: 12 });
-  const settings = { ...defaultSettings(), volumes: { piano: 50, drums: 100, lofi: 100, lead: 0 } };
+  seq.addNote({ instrument: 'drums', midi: 48, start: 0, duration: 3 });
+  const settings = { ...defaultSettings(), volumes: { piano: 50, drums: 200, lofi: 100, lead: 0 } };
   const { payload } = buildExportPayload(seq, settings);
   const gainOf = Object.fromEntries(payload.events.map((e) => [e.instrument, e.gain]));
-  assert.deepEqual(gainOf, { piano: 0.5, lead: 0 });
+  assert.deepEqual(gainOf, { piano: 0.25, lead: 0, drums: 4 });
 });

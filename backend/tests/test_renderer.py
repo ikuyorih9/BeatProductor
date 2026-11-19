@@ -110,3 +110,22 @@ def test_instruments_are_calibrated_to_similar_loudness():
         out = render_pass([Event(0.0, "C4", 0.5, instrument)], 0.5)[: SR // 2]
         levels[instrument] = 20 * np.log10(_rms(out))
     assert max(levels.values()) - min(levels.values()) < 3.0, levels
+
+
+def _drum_level(note):
+    out = render_pass([Event(0.0, note, 0.1, "drums")], 0.5)
+    return 20 * np.log10(_rms(out[: int(0.15 * SR)]))
+
+
+def test_drum_pieces_are_balanced_against_the_kick():
+    """Caixa e hi-hats não ficam enterrados (antes: 8 a 16 dB abaixo do bumbo)."""
+    kick, snare, closed, opened = (_drum_level(n) for n in ("C3", "C#3", "D3", "D#3"))
+    assert kick - snare < 3, (kick, snare)
+    assert kick - closed < 10, (kick, closed)
+    assert kick - opened < 10, (kick, opened)
+
+
+def test_drums_at_200_percent_are_12_db_louder_in_the_mix():
+    base = render_pass([Event(0.0, "C#3", 0.1, "drums", 1.0)], 0.5)
+    loud = render_pass([Event(0.0, "C#3", 0.1, "drums", 4.0)], 0.5)
+    assert 20 * np.log10(_rms(loud) / _rms(base)) == pytest.approx(12.04, abs=0.01)

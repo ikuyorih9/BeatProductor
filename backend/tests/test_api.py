@@ -82,7 +82,7 @@ def test_export_without_events_returns_silence(client):
         {"events": [{"time": 2.0, "note": "C4", "duration": 0.5, "instrument": "piano"}]},
         {"events": [{"time": 0, "note": "C4", "duration": 0.5, "instrument": "piano", "extra": 1}]},
         {"events": [{"time": 0, "note": "C4", "duration": 0.5, "instrument": "piano", "gain": -0.1}]},
-        {"events": [{"time": 0, "note": "C4", "duration": 0.5, "instrument": "piano", "gain": 2}]},
+        {"events": [{"time": 0, "note": "C4", "duration": 0.5, "instrument": "piano", "gain": 4.5}]},
         {"length": 0},
         {"length": 500},
         {"loops": 0},

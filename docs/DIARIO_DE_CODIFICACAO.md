@@ -356,6 +356,49 @@ colcheia (4) não dividem o compasso.
 
 ---
 
+## 2026-11-19 — Bateria baixa e mixer que "não aumentava"
+
+**Pedido:** "o som da bateria tá baixo no 100%. E o aumento de volume não aumenta realmente muito".
+
+**Medição (RMS numa janela de 150 ms, mais justa para sons de ataque)**
+- No navegador, em relação aos instrumentos melódicos (cerca de −10 dB):
+  - bumbo −9 dB (ok);
+  - caixa −20 dB (10 dB abaixo);
+  - **hi-hat fechado −31 dB** (21 dB abaixo);
+  - hi-hat aberto −22 dB.
+- Um beat é quase só caixa e hi-hat, por isso parecia baixo. No Python, o mesmo padrão um pouco menor.
+- **Slider:** era linear, então 150% dava só +3,5 dB.
+- **Pior:** medi o beat inteiro pela cadeia real do navegador. De 100% para 200% a bateria subia só **3,5 dB**, porque o compressor de saída (limiar −8 dB, master 0,7) "devolvia" o reforço.
+- A mesma medição mostrou **picos de +0,5 a +3,6 dBFS** na saída, ou seja, risco de distorção digital.
+
+**Feito**
+- **Calibração por peça da bateria** nos dois motores, para o mesmo equilíbrio: caixa −1,5, hi-hat fechado −8, aberto −5 dB em relação ao bumbo.
+  - JS: caixa ×2,8, fechado ×7, aberto ×2,4, medidos **na cadeia de saída real**;
+  - Python: ×2,3, ×3,9, ×2,6.
+  - No navegador, a calibração é aplicada no ganho de cada voz, não no sintetizador. Assim o teste de clipping de cada voz continua valendo.
+- **Caixa e hi-hat fechado mais encorpados**, nos dois motores e iguais:
+  - caixa: ruído decai em 0,3 s (era 0,2) e corpo em 0,15 s (era 0,1);
+  - hi-hat fechado: 80 ms (era 50).
+  - Motivo: o primeiro E2E da cadeia real mostrou que reforçar a caixa só alimentava o limitador. O pico dela é cerca de 17 dB acima da média, e ela chegava 5 dB abaixo do bumbo mesmo calibrada. Com mais corpo, ela soa mais alta com o mesmo pico.
+- **Curva perceptiva do volume:** ganho = (%/100)², com faixa de 0 a 200%. 50% ≈ −12 dB e 200% ≈ +12 dB. A API passou a aceitar `gain` até 4.
+- **Nova cadeia de saída:** master 0,45 (mais folga), compressor leve (−2 dB, 4:1) e um **limitador suave** (WaveShaper com teto de 0,98).
+  - Testei quatro configurações com medição.
+  - O `oversample` do WaveShaper ficou desligado, porque o filtro de oversample criava sobressinal acima do teto.
+- **Resultado:**
+  - pico sempre ≤ −0,7 dBFS, mesmo com tudo a 200%;
+  - bateria +11 dB de 50% para 100% e cerca de +8 dB de 100% para 200%. O restante é segurado pelo limitador, porque os ataques da bateria já chegam perto do teto.
+- O limitador mudou de lugar, então o app ficou cerca de 2 dB mais baixo no geral. Em troca, há folga real para o mixer.
+
+**Verificação**
+- pytest: peças da bateria a menos de 3 dB (caixa) e 10 dB (hi-hats) do bumbo; 200% = +12,04 dB na mixagem do MP3.
+- node:test: curva do volume e `gain` enviado na curva.
+- E2E: renderiza um beat denso pela **cadeia de saída real** (`createOutputChain`, exportada para o teste) e confere:
+  - equilíbrio das peças;
+  - pico < 0 dBFS a 100% e com tudo a 200%;
+  - 200% reforça mais de 6 dB e 50% atenua mais de 9 dB.
+
+---
+
 ## Resumo final
 
 | Requisito | Onde |
@@ -371,4 +414,4 @@ colcheia (4) não dividem o compasso.
 | RNF02 Sem build/dependências pesadas | Vanilla JS em ES Modules + Tailwind via CDN, zero pacotes npm |
 | RNF03 MP3 limpo, sem cortes no loop | overlap-add, normalização −1 dBFS, fades de borda |
 
-**Totais:** 94 testes pytest · 89 testes `node:test` · 40 verificações E2E em navegador real.
+**Totais:** 96 testes pytest · 90 testes `node:test` · 41 verificações E2E em navegador real.

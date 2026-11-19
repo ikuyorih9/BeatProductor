@@ -41,7 +41,7 @@ Cada evento:
 | `note` | texto | Nome científico: `C4`, `F#3`… (sem bemóis) |
 | `duration` | número | 0 < x ≤ 120 (segundos) |
 | `instrument` | texto | `piano`, `drums`, `lofi` ou `lead` |
-| `gain` | número (opcional) | 0 ≤ x ≤ 1,5 — volume do instrumento no mixer (padrão 1 = 100%; 0 = mudo). O servidor aplica por cima a calibração de cada instrumento. |
+| `gain` | número (opcional) | 0 ≤ x ≤ 4 — ganho linear do instrumento no mixer (padrão 1 = 100%; 0 = mudo; o app envia (volume%/100)², então 200% = 4). O servidor aplica por cima a calibração de cada instrumento e de cada peça da bateria. |
 
 Campos desconhecidos são rejeitados. A duração total (`length × repetições`) não pode passar de **600 s**.
 

@@ -17,8 +17,8 @@ from typing import Iterable
 
 import numpy as np
 
-from ..core.config import INSTRUMENT_TRIM, MAX_TAIL_SECONDS, SAMPLE_RATE, TARGET_PEAK
-from ..core.music import note_to_midi
+from ..core.config import DRUM_PIECE_TRIM, INSTRUMENT_TRIM, MAX_TAIL_SECONDS, SAMPLE_RATE, TARGET_PEAK
+from ..core.music import drum_piece_for_midi, note_to_midi
 from .instruments import render_note
 
 SILENCE_THRESHOLD = 10 ** (-70 / 20)  # -70 dBFS
@@ -48,8 +48,7 @@ def render_pass(events: Iterable[Event], length: float, sr: int = SAMPLE_RATE) -
             cache[key] = render_note(event.instrument, midi, duration_samples / sr, sr)
         start = int(round(event.time * sr))
         voice = cache[key]
-        # Calibração do instrumento × volume escolhido (o cache guarda a voz sem ganho).
-        rendered.append((start, voice, INSTRUMENT_TRIM.get(event.instrument, 1.0) * event.gain))
+        rendered.append((start, voice, _scale(event.instrument, midi, event.gain)))
         end = max(end, start + len(voice))
 
     buffer = np.zeros(end, dtype=np.float32)
@@ -57,6 +56,15 @@ def render_pass(events: Iterable[Event], length: float, sr: int = SAMPLE_RATE) -
         if scale > 0:
             buffer[start:start + len(voice)] += voice * np.float32(scale)
     return buffer
+
+
+def _scale(instrument: str, midi: int, gain: float) -> float:
+    """Calibração do instrumento (e da peça, na bateria) × volume escolhido.
+    O cache guarda a voz sem ganho; a escala é aplicada na mixagem."""
+    scale = INSTRUMENT_TRIM.get(instrument, 1.0) * gain
+    if instrument == "drums":
+        scale *= DRUM_PIECE_TRIM[drum_piece_for_midi(midi)]
+    return scale
 
 
 def render_sequence(events: Iterable[Event], length: float, repetitions: int = 1,

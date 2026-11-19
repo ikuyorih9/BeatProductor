@@ -518,7 +518,7 @@ await check('mixer: o slider muda o volume do instrumento', async () => {
   if (await evaluate('!!window.__beatProductor.audio')) {
     await sleep(150); // rampa de 30 ms
     const gain = await evaluate('window.__beatProductor.audio.buses.lead.gain.value');
-    assert.ok(Math.abs(gain - 2.1 * 0.5) < 0.01, `ganho do canal ${gain}`);
+    assert.ok(Math.abs(gain - 2.1 * 0.25) < 0.01, `ganho do canal ${gain}`); // 50% = (0,5)² na curva perceptiva
   }
   await setControl('volume-lead', 100);
 });
@@ -556,6 +556,69 @@ if (await evaluate('typeof window.__beatProductor.audio === "object"')) {
     for (const [name, peak] of Object.entries(peaks)) {
       assert.ok(peak > 0.02 && peak <= 1.0, `${name}: pico ${peak}`);
     }
+  });
+
+  await check('áudio: cadeia de saída real — bateria equilibrada, reforço audível e nunca acima de 0 dBFS', async () => {
+    const result = await evaluate(`(async () => {
+      const { INSTRUMENT_FACTORIES } = await import('./js/audio/instruments.js');
+      const { createOutputChain } = await import('./js/audio/engine.js');
+      const { INSTRUMENT_TRIM, DRUM_PIECE_TRIM } = await import('./js/config.js');
+      const { drumPieceForMidi } = await import('./js/core/music.js');
+      const { volumeToGain } = await import('./js/core/volume.js');
+      const sr = 44100;
+      async function render(notes, volumes, seconds) {
+        const ctx = new OfflineAudioContext(1, sr * seconds, sr);
+        const noise = ctx.createBuffer(1, sr, sr);
+        noise.getChannelData(0).forEach((_, i, a) => { a[i] = Math.random() * 2 - 1; });
+        const { master } = createOutputChain(ctx);
+        const buses = {};
+        for (const n of notes) {
+          if (!buses[n.i]) {
+            buses[n.i] = ctx.createGain();
+            buses[n.i].gain.value = INSTRUMENT_TRIM[n.i] * volumeToGain(volumes[n.i] ?? 100);
+            buses[n.i].connect(master);
+          }
+          const voice = INSTRUMENT_FACTORIES[n.i](ctx, { midi: n.m, when: n.t, duration: n.d }, { noiseBuffer: noise });
+          const trim = ctx.createGain();
+          if (n.i === 'drums') trim.gain.value = DRUM_PIECE_TRIM[drumPieceForMidi(n.m).id];
+          voice.output.connect(trim).connect(buses[n.i]);
+          voice.sources.forEach((s) => { s.start(n.t); s.stop(voice.endTime); });
+        }
+        return (await ctx.startRendering()).getChannelData(0);
+      }
+      const db = (x) => 20 * Math.log10(x);
+      const rms = (d, n) => { let e = 0; for (let i = 0; i < n; i += 1) e += d[i] * d[i]; return Math.sqrt(e / n); };
+      const peak = (d) => d.reduce((p, v) => Math.max(p, Math.abs(v)), 0);
+      const pieces = {};
+      for (const m of [48, 49, 50, 51]) pieces[m] = db(rms(await render([{ i: 'drums', m, t: 0, d: 0.1 }], {}, 0.5), 6615));
+      const beat = [];
+      for (let s = 0; s < 32; s += 1) {
+        const t = s * 0.125;
+        beat.push({ i: 'drums', m: s % 4 === 2 ? 51 : 50, t, d: 0.1 });
+        if (s % 8 === 0) beat.push({ i: 'drums', m: 48, t, d: 0.1 });
+        if (s % 8 === 4) beat.push({ i: 'drums', m: 49, t, d: 0.1 });
+      }
+      const drumsOnly = [...beat];
+      for (const m of [60, 64, 67]) beat.push({ i: 'piano', m, t: 0, d: 2 });
+      for (const m of [48, 55]) beat.push({ i: 'lofi', m, t: 0, d: 4 });
+      for (let k = 0; k < 8; k += 1) beat.push({ i: 'lead', m: 72 + (k % 3) * 2, t: k * 0.5, d: 0.4 });
+      const all200 = { piano: 200, drums: 200, lofi: 200, lead: 200 };
+      return {
+        pieces,
+        peakAll200: peak(await render(beat, all200, 4.5)),
+        peak100: peak(await render(beat, {}, 4.5)),
+        drums50: db(rms(await render(drumsOnly, { drums: 50 }, 4.5), sr * 4)),
+        drums100: db(rms(await render(drumsOnly, { drums: 100 }, 4.5), sr * 4)),
+        drums200: db(rms(await render(drumsOnly, { drums: 200 }, 4.5), sr * 4)),
+      };
+    })()`);
+    const { pieces } = result;
+    const info = JSON.stringify(result);
+    assert.ok(pieces[48] - pieces[49] < 3, `caixa muito baixa: ${info}`);
+    assert.ok(pieces[48] - pieces[50] < 10 && pieces[48] - pieces[51] < 10, `hi-hats muito baixos: ${info}`);
+    assert.ok(result.peakAll200 < 1 && result.peak100 < 1, `pico acima de 0 dBFS: ${info}`);
+    assert.ok(result.drums200 - result.drums100 > 6, `200% deveria reforçar bem: ${info}`);
+    assert.ok(result.drums100 - result.drums50 > 9, `50% deveria atenuar bem: ${info}`);
   });
 
   await check('áudio: clicar numa tecla toca a pré-escuta', async () => {

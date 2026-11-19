@@ -84,7 +84,7 @@ test('configurações salvas são saneadas', () => {
       instrument: 'tuba', division: '1/3', meter: '7/9', bpm: 9999, bars: 'x', loop: 'sim', loops: -4,
       volumes: { piano: 999, lead: 'x' },
     }),
-    { ...defaultSettings(), bpm: 240, loops: 1, volumes: { ...defaultSettings().volumes, piano: 150 } },
+    { ...defaultSettings(), bpm: 240, loops: 1, volumes: { ...defaultSettings().volumes, piano: 200 } },
   );
   const valid = {
     instrument: 'lofi', division: '1/16T', meter: '6/8', bpm: 90, bars: 8, loop: true, loops: 7,

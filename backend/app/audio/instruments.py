@@ -134,10 +134,11 @@ def _kick(sr: int) -> np.ndarray:
 
 
 def _snare(sr: int) -> np.ndarray:
-    n = int(0.22 * sr)
+    # Decaimentos mais longos que um "estalo": a caixa tem corpo sem precisar de pico maior.
+    n = int(0.32 * sr)
     t = _time(n, sr)
-    noise = _filter(_noise(n, 1), "highpass", 1200.0, sr) * _exp_decay(t, 0.42, 0.2)
-    body = _triangle(185.0 * t) * _exp_decay(t, 0.38, 0.1)
+    noise = _filter(_noise(n, 1), "highpass", 1200.0, sr) * _exp_decay(t, 0.42, 0.3)
+    body = _triangle(185.0 * t) * _exp_decay(t, 0.38, 0.15)
     return noise + body
 
 
@@ -155,7 +156,7 @@ def drums(midi: int, duration: float, sr: int = SAMPLE_RATE) -> np.ndarray:  # n
     elif piece == "snare":
         signal = _snare(sr)
     elif piece == "hihat_closed":
-        signal = _hihat(sr, 0.05, seed=2)
+        signal = _hihat(sr, 0.08, seed=2)
     else:
         signal = _hihat(sr, 0.35, seed=3)
     return _fade_tail(signal.astype(np.float32), sr)

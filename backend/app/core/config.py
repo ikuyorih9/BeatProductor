@@ -13,8 +13,14 @@ INSTRUMENTS = ("piano", "drums", "lofi", "lead")
 #: (campo `gain` de cada evento) é aplicado por cima disto.
 INSTRUMENT_TRIM = {"piano": 1.0, "drums": 1.25, "lofi": 1.0, "lead": 1.9}
 
-#: Faixa do ganho por evento (0 = mudo, 1 = 100%, 1.5 = 150%).
-MAX_GAIN = 1.5
+#: Calibração de cada peça da bateria (sobre INSTRUMENT_TRIM["drums"]): caixa e hi-hats
+#: soavam 10–18 dB abaixo do bumbo; com isto ficam no mesmo equilíbrio do navegador
+#: (caixa −1,5, hi-hat fechado −8, aberto −5 dB em relação ao bumbo).
+DRUM_PIECE_TRIM = {"kick": 1.0, "snare": 2.3, "hihat_closed": 3.9, "hihat_open": 2.6}
+
+#: Ganho máximo por evento. O frontend usa curva perceptiva: ganho = (volume% / 100)²,
+#: então 200% = 4.0 (+12 dB).
+MAX_GAIN = 4.0
 
 #: Formatos de saída suportados.
 FORMATS = ("mp3", "wav")

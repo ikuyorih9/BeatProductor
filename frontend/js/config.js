@@ -51,8 +51,11 @@ export const DEFAULT_METER = '4/4';
 export const BPM = Object.freeze({ MIN: 40, MAX: 240, DEFAULT: 120 });
 export const BARS = Object.freeze({ MIN: 1, MAX: 16, DEFAULT: 4 });
 export const LOOPS = Object.freeze({ MIN: 1, MAX: 32, DEFAULT: 4 });
-/** Volume de cada instrumento no mixer, em % (100 = calibrado; até 150 para reforçar). */
-export const VOLUME = Object.freeze({ MIN: 0, MAX: 150, DEFAULT: 100 });
+/**
+ * Volume de cada instrumento no mixer, em % (100 = calibrado; até 200 para reforçar).
+ * Curva perceptiva: ganho = (% / 100)² → 50% ≈ −12 dB, 150% ≈ +7 dB, 200% ≈ +12 dB.
+ */
+export const VOLUME = Object.freeze({ MIN: 0, MAX: 200, DEFAULT: 100 });
 
 /** Faixa de notas: 3 oitavas, de C3 (MIDI 48) até B5 (MIDI 83). */
 export const LOWEST_MIDI = 48;
@@ -79,6 +82,12 @@ export const DEFAULT_INSTRUMENT = 'piano';
  * (backend/app/core/config.py), porque os sintetizadores são implementações diferentes.
  */
 export const INSTRUMENT_TRIM = Object.freeze({ piano: 0.85, drums: 1.0, lofi: 1.0, lead: 2.1 });
+
+/**
+ * Calibração de cada peça da bateria no navegador: caixa e hi-hats soavam 10–21 dB abaixo do bumbo.
+ * Medido na cadeia de saída real: caixa ≈ −1,5, hi-hat fechado ≈ −8, aberto ≈ −5 dB em relação ao bumbo.
+ */
+export const DRUM_PIECE_TRIM = Object.freeze({ kick: 1.0, snare: 2.8, hihat_closed: 7.0, hihat_open: 2.4 });
 
 /** Peças da bateria, atribuídas pela classe de altura da nota (pitch class % 4). */
 export const DRUM_PIECES = Object.freeze([

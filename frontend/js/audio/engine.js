@@ -1,14 +1,54 @@
 /**
  * Motor de áudio: AudioContext, cadeia master e controle das vozes ativas.
  *
- * Cadeia: voz → kill-gain (cortes suaves) → canal do instrumento (calibração × volume do mixer)
- *         → master → compressor (limitador) → saída.
+ * Cadeia: voz → kill-gain (cortes suaves; na bateria, calibração da peça)
+ *         → canal do instrumento (calibração × volume do mixer)
+ *         → master → compressor leve → limitador suave (teto em −0,2 dBFS) → saída.
+ *
+ * Ganho na cadeia (medido): o master deixa folga para o mixer reforçar até 200% sem que o
+ * compressor "devolva" o reforço; o limitador suave só atua nos picos e garante que a saída
+ * nunca passe de 0 dBFS (sem distorção digital), mesmo com tudo no máximo.
  */
-import { INSTRUMENT_TRIM, VOLUME } from '../config.js';
+import { DRUM_PIECE_TRIM, INSTRUMENT_TRIM, VOLUME } from '../config.js';
+import { drumPieceForMidi } from '../core/music.js';
+import { volumeToGain } from '../core/volume.js';
 import { INSTRUMENT_FACTORIES } from './instruments.js';
 
 const MAX_VOICES = 96;
 const FADE_SECONDS = 0.02;
+export const MASTER_GAIN = 0.45;
+
+/** Curva do limitador suave: linear até 0,7; acima, satura suavemente até 0,98 (≈ −0,2 dBFS). */
+function softClipCurve(points = 4097) {
+  const curve = new Float32Array(points);
+  for (let i = 0; i < points; i += 1) {
+    const x = (i / (points - 1)) * 2 - 1;
+    const a = Math.abs(x);
+    curve[i] = Math.sign(x) * (a <= 0.7 ? a : 0.7 + 0.28 * Math.tanh((a - 0.7) / 0.28));
+  }
+  return curve;
+}
+
+/**
+ * Cadeia de saída (master → compressor → limitador suave → destino). Exportada para os
+ * testes renderizarem exatamente a mesma cadeia num OfflineAudioContext.
+ * @returns {{ master: GainNode, compressor: DynamicsCompressorNode, clipper: WaveShaperNode }}
+ */
+export function createOutputChain(ctx) {
+  const master = ctx.createGain();
+  master.gain.value = MASTER_GAIN;
+  const compressor = ctx.createDynamicsCompressor();
+  compressor.threshold.value = -2;
+  compressor.knee.value = 2;
+  compressor.ratio.value = 4;
+  compressor.attack.value = 0.003;
+  compressor.release.value = 0.1;
+  const clipper = ctx.createWaveShaper();
+  clipper.curve = softClipCurve();
+  clipper.oversample = 'none'; // com oversample, o filtro cria sobressinal acima do teto
+  master.connect(compressor).connect(clipper).connect(ctx.destination);
+  return { master, compressor, clipper };
+}
 
 function createNoiseBuffer(ctx, seconds = 1) {
   const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * seconds), ctx.sampleRate);
@@ -23,21 +63,13 @@ export class AudioEngine {
     if (!AudioContextClass) throw new Error('Este navegador não suporta a Web Audio API.');
     this.context = new AudioContextClass({ latencyHint: 'interactive' });
 
-    this.master = this.context.createGain();
-    this.master.gain.value = 0.7;
-    this.limiter = this.context.createDynamicsCompressor();
-    this.limiter.threshold.value = -8;
-    this.limiter.knee.value = 4;
-    this.limiter.ratio.value = 12;
-    this.limiter.attack.value = 0.003;
-    this.limiter.release.value = 0.2;
-    this.master.connect(this.limiter).connect(this.context.destination);
+    this.master = createOutputChain(this.context).master;
 
     // Um canal por instrumento: o volume muda ao vivo, inclusive em notas já soando.
     this.buses = {};
     for (const instrument of Object.keys(INSTRUMENT_FACTORIES)) {
       const bus = this.context.createGain();
-      bus.gain.value = (INSTRUMENT_TRIM[instrument] ?? 1) * (VOLUME.DEFAULT / 100);
+      bus.gain.value = (INSTRUMENT_TRIM[instrument] ?? 1) * volumeToGain(VOLUME.DEFAULT);
       bus.connect(this.master);
       this.buses[instrument] = bus;
     }
@@ -47,11 +79,11 @@ export class AudioEngine {
     this.stats = { scheduled: 0, previews: 0 };
   }
 
-  /** Volume do instrumento em % (0–150). Rampa curta para não estalar. */
+  /** Volume do instrumento em % (0–200, curva perceptiva). Rampa curta para não estalar. */
   setVolume(instrument, percent) {
     const bus = this.buses[instrument];
     if (!bus) return;
-    const target = (INSTRUMENT_TRIM[instrument] ?? 1) * (Math.max(0, percent) / 100);
+    const target = (INSTRUMENT_TRIM[instrument] ?? 1) * volumeToGain(percent);
     const now = this.context.currentTime;
     bus.gain.cancelScheduledValues(now);
     bus.gain.setValueAtTime(bus.gain.value, now);
@@ -86,6 +118,8 @@ export class AudioEngine {
     const voice = factory(this.context, { midi, when: start, duration: Math.max(0.02, duration) }, { noiseBuffer: this.noiseBuffer });
 
     const kill = this.context.createGain();
+    // Na bateria, cada peça tem a sua calibração (o fade de corte parte deste valor).
+    if (instrument === 'drums') kill.gain.value = DRUM_PIECE_TRIM[drumPieceForMidi(midi).id] ?? 1;
     voice.output.connect(kill).connect(this.buses[instrument]);
     voice.kill = kill;
     voice.startTime = start;

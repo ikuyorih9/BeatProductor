@@ -112,7 +112,7 @@ Quando aparecer *"Beat Productor rodando em http://127.0.0.1:8000"*, abra esse e
 | **🗑 (lixeira)** | Apaga as notas selecionadas. Só fica ativa quando há seleção (atalho **Delete**). |
 | **Limpar** | Apaga as notas e pausas do instrumento atual (pede confirmação). |
 | **Limpar tudo** | Apaga as notas e pausas de **todos** os instrumentos de uma vez (pede confirmação). |
-| **Mixer** | Um volume por instrumento, de 0% (mudo) a 150%. **100% já vem equilibrado**: os instrumentos foram calibrados para soar com intensidade parecida. Vale ao vivo e no MP3 exportado. **Duplo clique** no slider volta a 100%. |
+| **Mixer** | Um volume por instrumento, de 0% (mudo) a 200%. **100% já vem equilibrado**: os instrumentos (e cada peça da bateria) foram calibrados para soar com intensidade parecida. A escala é perceptiva: **50% ≈ metade do volume percebido (−12 dB)**, **200% ≈ o dobro (+12 dB)**. Vale ao vivo e no MP3 exportado. **Duplo clique** no slider volta a 100%. A saída tem um limitador: mesmo com tudo no máximo, o som não distorce. |
 
 ### 3.3 Grid de montagem
 

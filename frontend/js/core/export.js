@@ -5,6 +5,7 @@
  */
 import { VOLUME } from '../config.js';
 import { ticksToSeconds } from './timing.js';
+import { volumeToGain } from './volume.js';
 
 export const EXPORT_LIMITS = Object.freeze({ MAX_TOTAL_SECONDS: 600, MAX_EVENTS: 5000 });
 
@@ -12,10 +13,10 @@ export const EXPORT_LIMITS = Object.freeze({ MAX_TOTAL_SECONDS: 600, MAX_EVENTS:
  * @returns {{ ok: true, payload: object } | { ok: false, error: string }}
  */
 export function buildExportPayload(sequence, { bpm, loop, loops, volumes = {} }, format = 'mp3') {
-  // gain = volume do mixer (100 % → 1). A calibração entre instrumentos é feita no servidor.
+  // gain = volume do mixer na curva perceptiva (100 % → 1). A calibração entre instrumentos é feita no servidor.
   const events = sequence.toEvents(bpm).map((event) => ({
     ...event,
-    gain: Math.round((volumes[event.instrument] ?? VOLUME.DEFAULT)) / 100,
+    gain: Math.round(volumeToGain(volumes[event.instrument] ?? VOLUME.DEFAULT) * 10000) / 10000,
   }));
   if (events.length === 0) {
     return { ok: false, error: 'Adicione pelo menos uma nota antes de exportar.' };

@@ -41,7 +41,7 @@ class NoteEvent(BaseModel):
     note: str = Field(pattern=NOTE_PATTERN, description='Nome científico, ex.: "C4", "F#3"')
     duration: float = Field(gt=0, le=MAX_NOTE_SECONDS, description="Duração (s)")
     instrument: Instrument
-    gain: float = Field(default=1.0, ge=0, le=MAX_GAIN, description="Volume (0 = mudo, 1 = 100%)")
+    gain: float = Field(default=1.0, ge=0, le=MAX_GAIN, description="Ganho linear (0 = mudo, 1 = 100%, 4 = 200%)")
 
     @field_validator("note")
     @classmethod

@@ -91,15 +91,16 @@ function snare(ctx, when, noiseBuffer) {
   highpass.frequency.value = 1200;
   const noiseGain = ctx.createGain();
   noise.connect(highpass).connect(noiseGain).connect(output);
+  // Decaimentos mais longos que um "estalo": a caixa tem corpo sem precisar de pico maior.
   noiseGain.gain.setValueAtTime(0.42, when);
-  noiseGain.gain.exponentialRampToValueAtTime(0.001, when + 0.2);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, when + 0.3);
 
   const body = oscillator(ctx, 'triangle', 185);
   const bodyGain = ctx.createGain();
   body.connect(bodyGain).connect(output);
   bodyGain.gain.setValueAtTime(0.38, when);
-  bodyGain.gain.exponentialRampToValueAtTime(0.001, when + 0.1);
-  return { output, sources: [noise, body], endTime: when + 0.22 };
+  bodyGain.gain.exponentialRampToValueAtTime(0.001, when + 0.15);
+  return { output, sources: [noise, body], endTime: when + 0.32 };
 }
 
 function hihat(ctx, when, noiseBuffer, decay) {
@@ -119,7 +120,7 @@ export function drums(ctx, { midi, when }, { noiseBuffer }) {
   switch (drumPieceForMidi(midi).id) {
     case 'kick': return kick(ctx, when);
     case 'snare': return snare(ctx, when, noiseBuffer);
-    case 'hihat_closed': return hihat(ctx, when, noiseBuffer, 0.05);
+    case 'hihat_closed': return hihat(ctx, when, noiseBuffer, 0.08);
     default: return hihat(ctx, when, noiseBuffer, 0.35);
   }
 }
