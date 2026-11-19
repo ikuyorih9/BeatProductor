@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Beat Productor</title>
+  <meta name="description" content="Criação rápida de beats e sequências em um piano roll.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f172a'/%3E%3Crect x='6' y='8' width='8' height='4' rx='1' fill='%2338bdf8'/%3E%3Crect x='12' y='14' width='12' height='4' rx='1' fill='%23a78bfa'/%3E%3Crect x='8' y='20' width='6' height='4' rx='1' fill='%23f97316'/%3E%3C/svg%3E">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="h-full bg-slate-950 text-slate-100 antialiased">
+  <div id="app" class="flex h-screen flex-col">
+
+    <!-- ===================== CABEÇALHO ===================== -->
+    <header class="flex flex-wrap items-end gap-x-5 gap-y-3 border-b border-slate-800 bg-slate-900 px-4 py-3">
+      <h1 class="mr-2 self-center text-lg font-bold tracking-widest text-sky-400">BEAT&nbsp;PRODUCTOR</h1>
+
+      <label class="control">
+        <span class="control-label">Instrumento</span>
+        <select id="instrument-select" class="control-input w-40" title="Instrumento das novas notas"></select>
+      </label>
+
+      <label class="control">
+        <span class="control-label">Divisão</span>
+        <select id="division-select" class="control-input w-20" title="Divisão de tempo do grid (células por batida)"></select>
+      </label>
+
+      <label class="control">
+        <span class="control-label">BPM</span>
+        <input id="bpm-input" type="number" inputmode="numeric" class="control-input w-20" title="Batidas por minuto">
+      </label>
+
+      <label class="control">
+        <span class="control-label">Compassos</span>
+        <input id="bars-input" type="number" inputmode="numeric" class="control-input w-20" title="Tamanho da sequência (compassos de 4 batidas)">
+      </label>
+
+      <div class="control">
+        <span class="control-label">Loop</span>
+        <div class="flex items-center gap-2">
+          <label class="flex h-9 cursor-pointer items-center gap-2 rounded-md border border-slate-700 bg-slate-800 px-3">
+            <input id="loop-checkbox" type="checkbox" class="h-4 w-4 accent-sky-500">
+            <span class="text-sm">Loop</span>
+          </label>
+          <input id="loops-input" type="number" inputmode="numeric" class="control-input w-16" title="Quantidade de repetições na exportação" aria-label="Quantidade de loops na exportação">
+        </div>
+      </div>
+
+      <div class="ml-auto flex items-end gap-2">
+        <button id="clear-button" type="button" class="btn btn-secondary" title="Apagar as notas do instrumento selecionado">Limpar</button>
+        <button id="export-button" type="button" class="btn btn-primary" title="Gerar e baixar o MP3 da sequência">Exportar MP3</button>
+      </div>
+    </header>
+
+    <!-- ===================== PIANO ROLL ===================== -->
+    <main id="roll-scroll" class="relative flex-1 overflow-auto" aria-label="Grid de montagem">
+      <div id="roll" class="relative">
+        <!-- Régua (compassos) — clique para posicionar o cursor -->
+        <div class="sticky top-0 z-30 flex h-6 bg-slate-900">
+          <div class="keys-width sticky left-0 z-40 flex items-center border-b border-r border-slate-800 bg-slate-900 px-2 text-[10px] uppercase tracking-wider text-slate-500">nota</div>
+          <div id="ruler" class="relative flex-none cursor-pointer border-b border-slate-800" title="Clique para mover o cursor">
+            <div id="ruler-marker" class="ruler-marker"></div>
+          </div>
+        </div>
+
+        <div class="flex">
+          <div id="piano-keys" class="keys-width sticky left-0 z-20 flex-none border-r border-slate-800 bg-slate-900"></div>
+          <div id="grid" class="relative flex-none touch-none select-none">
+            <div id="grid-rows"></div>
+            <div id="grid-lines" class="pointer-events-none absolute inset-0"></div>
+            <div id="notes-layer" class="absolute inset-0"></div>
+            <div id="ghost-note" class="note note-ghost hidden"></div>
+            <div id="playhead" class="playhead"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ===================== RODAPÉ (TRANSPORTE) ===================== -->
+    <footer class="grid grid-cols-3 items-center border-t border-slate-800 bg-slate-900 px-4 py-3">
+      <div class="text-xs text-slate-400">
+        <span id="position-display" class="font-mono text-sm text-slate-200">1.1</span>
+        <span class="mx-1 text-slate-600">|</span>
+        <span id="clock-display" class="font-mono">0:00.0</span>
+      </div>
+      <div class="flex items-center justify-center gap-3">
+        <button id="start-button" type="button" class="btn btn-secondary" title="Voltar ao início (Home)">⏮ INÍCIO</button>
+        <button id="play-button" type="button" class="btn btn-primary min-w-[8rem]" title="Tocar / pausar (Espaço)">▶ PLAY</button>
+        <button id="end-button" type="button" class="btn btn-secondary" title="Ir para o fim (End)">FIM ⏭</button>
+      </div>
+      <div id="status-display" class="text-right text-xs text-slate-500"></div>
+    </footer>
+  </div>
+
+  <div id="toast-area" class="pointer-events-none fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2" aria-live="polite"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

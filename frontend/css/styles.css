@@ -1,0 +1,122 @@
+/*
+ * Estilos complementares ao Tailwind (CDN).
+ * CSS puro: o Tailwind via CDN não processa @apply em arquivos externos.
+ */
+
+:root {
+  --keys-width: 88px;
+  --row-height: 22px;
+  --grid-bg: #0b1220;
+  --grid-bg-black: #070c17;
+  --line-cell: rgba(148, 163, 184, 0.10);
+  --line-beat: rgba(148, 163, 184, 0.24);
+  --line-bar: rgba(148, 163, 184, 0.50);
+  --playhead: #f43f5e;
+  color-scheme: dark;
+}
+
+html, body { height: 100%; }
+
+/* ---------- Controles do cabeçalho ---------- */
+.control { display: flex; flex-direction: column; gap: 4px; }
+.control-label {
+  font-size: 10px; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: #94a3b8;
+}
+.control-input {
+  height: 36px; border-radius: 6px; border: 1px solid #334155;
+  background: #1e293b; color: #f1f5f9; padding: 0 8px; font-size: 14px;
+}
+.control-input:focus { outline: 2px solid #0ea5e9; outline-offset: 1px; }
+.control-input:disabled { opacity: .4; cursor: not-allowed; }
+.control-input.is-invalid { border-color: #f43f5e; }
+
+/* ---------- Botões ---------- */
+.btn {
+  height: 36px; padding: 0 14px; border-radius: 6px; font-size: 13px;
+  font-weight: 600; letter-spacing: .03em; white-space: nowrap;
+  transition: background-color .12s, opacity .12s;
+}
+.btn:focus-visible { outline: 2px solid #0ea5e9; outline-offset: 2px; }
+.btn:disabled { opacity: .5; cursor: wait; }
+.btn-primary { background: #0284c7; color: #fff; }
+.btn-primary:hover:not(:disabled) { background: #0ea5e9; }
+.btn-secondary { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; }
+.btn-secondary:hover:not(:disabled) { background: #334155; }
+
+/* ---------- Teclas do piano (coluna esquerda) ---------- */
+.keys-width { width: var(--keys-width); min-width: var(--keys-width); }
+.key {
+  height: var(--row-height); display: flex; align-items: center; justify-content: flex-end;
+  padding-right: 6px; font-size: 10px; cursor: pointer; user-select: none;
+  border-bottom: 1px solid #1e293b;
+}
+.key-white { background: #e2e8f0; color: #334155; }
+.key-white:hover { background: #fff; }
+.key-black {
+  background: linear-gradient(to right, #020617 70%, #e2e8f0 70%);
+  color: #94a3b8; justify-content: flex-start; padding-left: 6px;
+}
+.key-black:hover { background: linear-gradient(to right, #1e293b 70%, #fff 70%); }
+.key-c { border-bottom: 2px solid #64748b; font-weight: 700; }
+.key.is-active { background: #38bdf8 !important; color: #0f172a; }
+.key-drum, .key-drum:hover {
+  justify-content: flex-start; padding-left: 8px; font-weight: 600;
+  background: #1e293b; color: #e2e8f0; border-bottom-color: #0f172a;
+}
+.key-drum.key-black, .key-drum.key-black:hover { background: #172033; color: #cbd5e1; }
+.key-drum:hover { filter: brightness(1.25); }
+
+/* ---------- Grid ---------- */
+.grid-row { height: var(--row-height); background: var(--grid-bg); border-bottom: 1px solid #111b2e; }
+.grid-row.is-black { background: var(--grid-bg-black); }
+.grid-row.is-c { border-bottom: 2px solid #1e3a5f; }
+
+#grid { cursor: crosshair; }
+
+/* ---------- Notas ---------- */
+.note {
+  position: absolute; border-radius: 4px; box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, .35);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .25);
+}
+.note-own { cursor: pointer; }
+.note-own:hover { filter: brightness(1.2); }
+.note-other { opacity: .22; pointer-events: none; }
+.note-ghost {
+  pointer-events: none; background: rgba(56, 189, 248, .35);
+  border: 1px dashed #7dd3fc; z-index: 5;
+}
+.note.is-playing { filter: brightness(1.5); }
+
+/* ---------- Cursor de reprodução ---------- */
+.playhead {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 2px;
+  background: var(--playhead); box-shadow: 0 0 6px var(--playhead);
+  pointer-events: none; z-index: 10; will-change: transform;
+}
+.ruler-marker {
+  position: absolute; top: 0; left: 0; width: 0; height: 0;
+  border-left: 6px solid transparent; border-right: 6px solid transparent;
+  border-top: 8px solid var(--playhead); margin-left: -5px;
+  pointer-events: none; will-change: transform; z-index: 2;
+}
+.ruler-label {
+  position: absolute; top: 4px; font-size: 10px; color: #94a3b8;
+  padding-left: 4px; pointer-events: none; font-family: ui-monospace, monospace;
+}
+.ruler-tick { position: absolute; bottom: 0; width: 1px; background: #475569; pointer-events: none; }
+
+/* ---------- Toasts ---------- */
+.toast {
+  pointer-events: auto; padding: 8px 14px; border-radius: 8px; font-size: 13px;
+  background: #1e293b; color: #f1f5f9; border: 1px solid #334155;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .4); animation: toast-in .18s ease-out;
+}
+.toast-error { border-color: #f43f5e; background: #3b0d17; }
+.toast-success { border-color: #22c55e; background: #0d2b18; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}
