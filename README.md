@@ -26,7 +26,12 @@ BeatProductor/
 │   │   │   ├── layout.js     #   geometria do grid
 │   │   │   ├── sequence.js   #   modelo das notas
 │   │   │   ├── store.js      #   estado da aplicação
+│   │   │   ├── schedule.js   #   notas numa janela de tempo (agendamento)
 │   │   │   └── transport.js  #   relógio musical (play/pause/seek/loop)
+│   │   ├── audio/            # Web Audio API
+│   │   │   ├── engine.js     #   AudioContext, master, vozes
+│   │   │   ├── instruments.js#   síntese dos 4 instrumentos
+│   │   │   └── scheduler.js  #   agendador com lookahead
 │   │   └── ui/               # Componentes de interface (DOM)
 │   ├── tests/                # Testes unitários (node:test)
 │   ├── scripts/              # Verificação de sintaxe/imports
@@ -54,6 +59,6 @@ node tests/e2e/smoke.mjs http://127.0.0.1:8000/   # E2E (com o servidor rodando)
 ## Roadmap
 
 - [x] **Fase 1** — Estrutura base, grid de 3 oitavas e cursor de reprodução
-- [ ] **Fase 2** — Web Audio API (playback local)
+- [x] **Fase 2** — Web Audio API (playback local)
 - [ ] **Fase 3** — Backend Python e síntese
 - [ ] **Fase 4** — Exportação MP3 e ajustes finais

@@ -76,7 +76,23 @@ Abra **http://127.0.0.1:8000** no Chrome, Edge ou Firefox.
 
 Se uma nova nota se sobrepõe a outra **do mesmo instrumento e na mesma linha**, a nova substitui a antiga.
 
-### 3.1 Bateria
+### 3.1 Ouvindo enquanto edita
+
+- **Clique numa tecla** (coluna da esquerda) para ouvir aquela nota no instrumento selecionado.
+- Ao **criar uma nota** com a reprodução parada, ela toca uma vez (pré-escuta).
+- Durante o **PLAY**, as teclas acendem quando suas notas soam.
+- O primeiro clique/PLAY libera o áudio (exigência dos navegadores). Se não ouvir nada, confira o volume do sistema.
+
+### 3.2 Os instrumentos
+
+| Instrumento | Timbre | Duração da nota |
+|---|---|---|
+| **Piano Acústico** | Percussivo, decai naturalmente (mais rápido nos agudos) | Soltar antes encurta; notas longas deixam o som decair |
+| **Bateria** | Bumbo, caixa e hi-hats (ver 3.3) | Ignorada (som *one-shot*) |
+| **Lofi Synth** | Abafado e quente, com leve vibrato | Sustenta enquanto durar a nota |
+| **Lead Synth** | Brilhante (dente-de-serra), para melodias | Sustenta enquanto durar a nota |
+
+### 3.3 Bateria
 
 Com **Bateria** selecionada, as teclas mostram a peça tocada em cada linha (o padrão se repete a cada 4 notas):
 
@@ -107,5 +123,7 @@ Os atalhos ficam desativados enquanto você digita num campo (BPM, Compassos, Lo
 
 | Sintoma | Solução |
 |---|---|
+| Não sai som | Clique em PLAY ou numa tecla (o navegador só libera o áudio após um clique) e confira o volume. Se aparecer "Áudio indisponível", o navegador não suporta Web Audio API — use Chrome, Edge ou Firefox atualizados. |
+| Som falha com a aba em segundo plano | O navegador reduz os timers de abas ocultas; mantenha a aba visível durante a reprodução. |
 | Página em branco ou sem estilo | Verifique a conexão com a internet (o Tailwind é carregado via CDN) e se abriu por `http://`, não `file://`. |
 | BPM volta para outro valor | Valores fora da faixa 40–240 são corrigidos automaticamente ao sair do campo. |

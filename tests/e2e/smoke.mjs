@@ -293,9 +293,35 @@ if (await evaluate('typeof window.__beatProductor.audio === "object"')) {
     await clickElement('#play-button');
   });
 
+  await check('áudio: cada instrumento produz som audível e sem clipping (OfflineAudioContext)', async () => {
+    const peaks = await evaluate(`(async () => {
+      const { INSTRUMENT_FACTORIES } = await import('./js/audio/instruments.js');
+      const out = {};
+      for (const [name, factory] of Object.entries(INSTRUMENT_FACTORIES)) {
+        for (const midi of [48, 61, 62, 63, 83]) {
+          const ctx = new OfflineAudioContext(1, 44100 * 2, 44100);
+          const noise = ctx.createBuffer(1, 44100, 44100);
+          noise.getChannelData(0).forEach((_, i, a) => { a[i] = Math.random() * 2 - 1; });
+          const voice = factory(ctx, { midi, when: 0.01, duration: 0.5 }, { noiseBuffer: noise });
+          voice.output.connect(ctx.destination);
+          voice.sources.forEach((s) => { s.start(0.01); s.stop(voice.endTime); });
+          const data = (await ctx.startRendering()).getChannelData(0);
+          let peak = 0;
+          for (const v of data) { if (Number.isNaN(v)) return { error: name + ' NaN' }; peak = Math.max(peak, Math.abs(v)); }
+          out[name + midi] = peak;
+        }
+      }
+      return out;
+    })()`);
+    assert.equal(peaks.error, undefined, peaks.error);
+    for (const [name, peak] of Object.entries(peaks)) {
+      assert.ok(peak > 0.02 && peak <= 1.0, `${name}: pico ${peak}`);
+    }
+  });
+
   await check('áudio: clicar numa tecla toca a pré-escuta', async () => {
     const before = await evaluate('window.__beatProductor.audio.stats.previews');
-    await clickElement('#piano-keys .key');
+    await clickElement('#piano-keys .key:nth-child(18)');
     await waitFor(`window.__beatProductor.audio.stats.previews > ${before}`, 2000, 'pré-escuta');
   });
 }

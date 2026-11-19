@@ -4,11 +4,13 @@
 import {
   BARS, BPM, DEFAULT_DIVISION, DEFAULT_INSTRUMENT, INSTRUMENTS, LOOPS, LOWEST_MIDI, OCTAVES,
 } from './config.js';
+import { AudioEngine } from './audio/engine.js';
+import { AudioScheduler } from './audio/scheduler.js';
 import { computeLayout } from './core/layout.js';
 import { buildRange } from './core/music.js';
 import { Sequence } from './core/sequence.js';
 import { createStore } from './core/store.js';
-import { lengthInTicks } from './core/timing.js';
+import { lengthInTicks, ticksToSeconds } from './core/timing.js';
 import { Transport } from './core/transport.js';
 import { byId } from './ui/dom.js';
 import { PianoRollGrid } from './ui/grid.js';
@@ -32,7 +34,17 @@ const store = createStore({
 const range = buildRange(LOWEST_MIDI, OCTAVES);
 const sequence = new Sequence(lengthInTicks(store.get().bars));
 
-const clock = () => performance.now() / 1000;
+// Motor de áudio. Se a Web Audio API não estiver disponível, o app segue
+// funcionando em modo silencioso (cursor guiado pelo relógio do sistema).
+let engine = null;
+let audioError = null;
+try {
+  engine = new AudioEngine();
+} catch (error) {
+  audioError = error;
+}
+
+const clock = engine ? () => engine.now() : () => performance.now() / 1000;
 const transport = new Transport({
   now: clock,
   bpm: store.get().bpm,
@@ -48,7 +60,9 @@ initHeader(store, {
   onClear: clearCurrentInstrument,
 });
 
-const keys = new PianoKeys(byId('piano-keys'), range, { onPreview: () => {} });
+const keys = new PianoKeys(byId('piano-keys'), range, {
+  onPreview: (midi) => previewNote(midi),
+});
 
 const grid = new PianoRollGrid({
   elements: {
@@ -65,6 +79,7 @@ const grid = new PianoRollGrid({
   onAdd: ({ midi, start, duration }) => {
     sequence.addNote({ instrument: store.get().instrument, midi, start, duration });
     onSequenceChanged();
+    if (!transport.playing) previewNote(midi, Math.min(ticksToSeconds(duration, store.get().bpm), 1.5));
   },
   onRemove: (id) => {
     if (sequence.removeNote(id)) onSequenceChanged();
@@ -80,6 +95,18 @@ const playhead = new Playhead({
   keysWidth,
 });
 
+const scheduler = engine ? new AudioScheduler({
+  engine,
+  transport,
+  getNotes: () => sequence.activeNotes(),
+  onNoteScheduled: (note, when) => {
+    // Acende a tecla no momento em que a nota soa.
+    const delayMs = Math.max(0, (when - engine.now() + engine.outputLatency) * 1000);
+    const lengthMs = Math.max(120, ticksToSeconds(note.duration, transport.bpm) * 1000);
+    window.setTimeout(() => keys.flash(note.midi, lengthMs), delayMs);
+  },
+}) : null;
+
 const controls = initTransportControls({
   onStart: () => seek(0),
   onToggle: () => togglePlayback(),
@@ -87,8 +114,22 @@ const controls = initTransportControls({
 });
 
 // ---------------------------------------------------------------- ações
-function togglePlayback() {
+async function togglePlayback() {
+  if (!transport.playing && engine) {
+    try {
+      await engine.resume();
+    } catch {
+      showToast('Não foi possível ativar o áudio do navegador.', 'error');
+    }
+  }
   transport.toggle();
+}
+
+function previewNote(midi, duration = 0.35) {
+  if (!engine) return;
+  engine.preview(store.get().instrument, midi, duration).catch(() => {
+    showToast('Não foi possível ativar o áudio do navegador.', 'error');
+  });
 }
 
 function seek(tick) {
@@ -143,7 +184,22 @@ store.subscribe((state, _previous, changed) => {
   if (has('instrument') || has('bars')) updateStatus();
 });
 
-transport.on(() => controls.setPlaying(transport.playing));
+transport.on((type) => {
+  controls.setPlaying(transport.playing);
+  if (!scheduler) return;
+  if (type === 'reanchor' && transport.playing) {
+    // Posição mudou durante o play (seek, loop, compassos): descarta o que já estava agendado.
+    engine.cancelPending();
+    scheduler.reset();
+  } else if (type === 'play') {
+    scheduler.start();
+  } else if (type === 'pause') {
+    scheduler.stop();
+    engine.stopAll();
+  } else if (type === 'end') {
+    scheduler.stop(); // as caudas das últimas notas terminam naturalmente
+  }
+});
 
 // ---------------------------------------------------------------- atalhos de teclado
 function isEditable(target) {
@@ -170,7 +226,8 @@ window.addEventListener('keyup', (event) => {
 // ---------------------------------------------------------------- laço de animação
 function frame() {
   transport.update();
-  const tick = transport.tick;
+  // Cursor alinhado com o que está SAINDO no alto-falante (compensa a latência de saída).
+  const tick = transport.playing && engine ? transport.tickAt(engine.now() - engine.outputLatency) : transport.tick;
   playhead.update(tick, layout.pxPerTick, transport.playing);
   controls.setPosition(tick, store.get().bpm);
   window.requestAnimationFrame(frame);
@@ -179,7 +236,7 @@ function frame() {
 // ---------------------------------------------------------------- inicialização
 // Ponto de inspeção para depuração no console e para os testes E2E.
 window.__beatProductor = {
-  store, sequence, transport, range, getLayout: () => layout,
+  store, sequence, transport, range, audio: engine, getLayout: () => layout,
 };
 
 keys.render(store.get().instrument);
@@ -187,3 +244,4 @@ relayout();
 updateStatus();
 controls.setPlaying(false);
 window.requestAnimationFrame(frame);
+if (audioError) showToast(`Áudio indisponível: ${audioError.message}`, 'error');

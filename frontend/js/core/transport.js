@@ -57,6 +57,19 @@ export class Transport {
     return Math.min(abs, this.lengthTicks);
   }
 
+  /**
+   * Posição no padrão num instante `time` do relógio (nunca antes da âncora).
+   * Usado para compensar a latência de saída do áudio no cursor visual.
+   */
+  tickAt(time) {
+    if (!this.playing) return this.tick;
+    const elapsed = Math.max(0, time - this._anchorTime);
+    const abs = this._anchorTick + elapsed / secondsPerTick(this.bpm);
+    if (this.lengthTicks <= 0) return 0;
+    if (this.loop) return abs % this.lengthTicks;
+    return Math.min(abs, this.lengthTicks);
+  }
+
   /** Instante do relógio (s) em que um tick absoluto acontece, dada a âncora atual. */
   timeAtAbsoluteTick(absTick) {
     return this._anchorTime + (absTick - this._anchorTick) * secondsPerTick(this.bpm);
