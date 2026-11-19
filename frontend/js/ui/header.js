@@ -57,8 +57,12 @@ export function initHeader(store, { onExport, onClear }) {
   exportButton.addEventListener('click', () => onExport());
   clearButton.addEventListener('click', () => onClear());
 
+  const colorOf = Object.fromEntries(INSTRUMENTS.map((i) => [i.id, i.color]));
+
   function render(state) {
     instrumentSelect.value = state.instrument;
+    // Faixa colorida = cor das notas do instrumento atual no grid.
+    instrumentSelect.style.borderLeft = `6px solid ${colorOf[state.instrument]}`;
     divisionSelect.value = state.division;
     loopCheckbox.checked = state.loop;
     loopsInput.disabled = !state.loop;

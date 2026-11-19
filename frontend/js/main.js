@@ -1,17 +1,19 @@
 /**
  * Ponto de entrada do frontend: cria o estado, os componentes e liga tudo.
  */
-import {
-  BARS, BPM, DEFAULT_DIVISION, DEFAULT_INSTRUMENT, INSTRUMENTS, LOOPS, LOWEST_MIDI, OCTAVES,
-} from './config.js';
+import { INSTRUMENTS, LOWEST_MIDI, OCTAVES } from './config.js';
 import { AudioEngine } from './audio/engine.js';
 import { AudioScheduler } from './audio/scheduler.js';
+import { buildExportPayload } from './core/export.js';
 import { computeLayout } from './core/layout.js';
 import { buildRange } from './core/music.js';
+import { defaultSettings } from './core/project.js';
 import { Sequence } from './core/sequence.js';
 import { createStore } from './core/store.js';
 import { lengthInTicks, ticksToSeconds } from './core/timing.js';
 import { Transport } from './core/transport.js';
+import { downloadBlob, requestExport } from './services/api.js';
+import { createAutosave, loadProject, saveProject } from './services/storage.js';
 import { byId } from './ui/dom.js';
 import { PianoRollGrid } from './ui/grid.js';
 import { initHeader } from './ui/header.js';
@@ -22,17 +24,12 @@ import { initTransportControls } from './ui/transport-controls.js';
 
 const INSTRUMENT_LABEL = Object.fromEntries(INSTRUMENTS.map((i) => [i.id, i.label]));
 
-// ---------------------------------------------------------------- estado
-const store = createStore({
-  instrument: DEFAULT_INSTRUMENT,
-  division: DEFAULT_DIVISION,
-  bpm: BPM.DEFAULT,
-  bars: BARS.DEFAULT,
-  loop: false,
-  loops: LOOPS.DEFAULT,
-});
+// ---------------------------------------------------------------- estado (restaurado do último uso, se houver)
+const saved = loadProject();
+const store = createStore(saved ? saved.settings : defaultSettings());
 const range = buildRange(LOWEST_MIDI, OCTAVES);
 const sequence = new Sequence(lengthInTicks(store.get().bars));
+if (saved) sequence.loadJSON(saved.notes);
 
 // Motor de áudio. Se a Web Audio API não estiver disponível, o app segue
 // funcionando em modo silencioso (cursor guiado pelo relógio do sistema).
@@ -53,11 +50,12 @@ const transport = new Transport({
 });
 
 let layout = computeLayout(store.get());
+const autosave = createAutosave(() => saveProject(store.get(), sequence));
 
 // ---------------------------------------------------------------- componentes
-initHeader(store, {
-  onExport: () => showToast('A exportação será habilitada na Fase 4.'),
-  onClear: clearCurrentInstrument,
+const header = initHeader(store, {
+  onExport: () => exportSequence(),
+  onClear: () => clearCurrentInstrument(),
 });
 
 const keys = new PianoKeys(byId('piano-keys'), range, {
@@ -103,9 +101,31 @@ const scheduler = engine ? new AudioScheduler({
     // Acende a tecla no momento em que a nota soa.
     const delayMs = Math.max(0, (when - engine.now() + engine.outputLatency) * 1000);
     const lengthMs = Math.max(120, ticksToSeconds(note.duration, transport.bpm) * 1000);
-    window.setTimeout(() => keys.flash(note.midi, lengthMs), delayMs);
+    const id = window.setTimeout(() => {
+      pendingFlashes.delete(id);
+      keys.flash(note.midi, lengthMs);
+    }, delayMs);
+    pendingFlashes.add(id);
   },
 }) : null;
+
+// Destaques de tecla ainda não disparados (cancelados no pause/seek junto com as vozes).
+const pendingFlashes = new Set();
+function cancelPendingFlashes() {
+  for (const id of pendingFlashes) window.clearTimeout(id);
+  pendingFlashes.clear();
+}
+
+// Se o sistema suspender o áudio (troca de dispositivo, economia de energia),
+// pausa o transporte para o cursor não seguir andando em silêncio.
+if (engine) {
+  engine.context.addEventListener('statechange', () => {
+    if (engine.context.state !== 'running' && transport.playing) {
+      transport.pause();
+      showToast('O áudio foi interrompido pelo sistema; reprodução pausada.', 'error');
+    }
+  });
+}
 
 const controls = initTransportControls({
   onStart: () => seek(0),
@@ -114,15 +134,22 @@ const controls = initTransportControls({
 });
 
 // ---------------------------------------------------------------- ações
+let toggling = false;
 async function togglePlayback() {
-  if (!transport.playing && engine) {
-    try {
-      await engine.resume();
-    } catch {
-      showToast('Não foi possível ativar o áudio do navegador.', 'error');
+  if (toggling) return; // evita duplo disparo enquanto o áudio é liberado
+  toggling = true;
+  try {
+    if (!transport.playing && engine) {
+      try {
+        await engine.resume();
+      } catch {
+        showToast('Não foi possível ativar o áudio do navegador.', 'error');
+      }
     }
+    transport.toggle();
+  } finally {
+    toggling = false;
   }
-  transport.toggle();
 }
 
 function previewNote(midi, duration = 0.35) {
@@ -147,6 +174,7 @@ function updateStatus() {
 function onSequenceChanged() {
   grid.renderNotes();
   updateStatus();
+  autosave();
 }
 
 function clearCurrentInstrument() {
@@ -160,6 +188,29 @@ function clearCurrentInstrument() {
   sequence.clear(instrument);
   onSequenceChanged();
   showToast('Notas apagadas.');
+}
+
+let exporting = false;
+async function exportSequence() {
+  if (exporting) return;
+  const result = buildExportPayload(sequence, store.get(), 'mp3');
+  if (!result.ok) {
+    showToast(result.error, 'error');
+    return;
+  }
+  exporting = true;
+  header.setExporting(true);
+  try {
+    const { blob, filename } = await requestExport(result.payload);
+    downloadBlob(blob, filename);
+    const reps = result.payload.loop ? ` (${result.payload.loops} loops)` : '';
+    showToast(`MP3 gerado${reps}: ${filename}`, 'success');
+  } catch (error) {
+    showToast(`Falha na exportação: ${error.message}`, 'error');
+  } finally {
+    exporting = false;
+    header.setExporting(false);
+  }
 }
 
 function relayout() {
@@ -182,6 +233,7 @@ store.subscribe((state, _previous, changed) => {
     grid.renderNotes();
   }
   if (has('instrument') || has('bars')) updateStatus();
+  autosave();
 });
 
 transport.on((type) => {
@@ -190,12 +242,14 @@ transport.on((type) => {
   if (type === 'reanchor' && transport.playing) {
     // Posição mudou durante o play (seek, loop, compassos): descarta o que já estava agendado.
     engine.cancelPending();
+    cancelPendingFlashes();
     scheduler.reset();
   } else if (type === 'play') {
     scheduler.start();
   } else if (type === 'pause') {
     scheduler.stop();
     engine.stopAll();
+    cancelPendingFlashes();
   } else if (type === 'end') {
     scheduler.stop(); // as caudas das últimas notas terminam naturalmente
   }
@@ -245,3 +299,4 @@ updateStatus();
 controls.setPlaying(false);
 window.requestAnimationFrame(frame);
 if (audioError) showToast(`Áudio indisponível: ${audioError.message}`, 'error');
+if (saved && !sequence.isEmpty) showToast('Projeto anterior restaurado.');

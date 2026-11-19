@@ -1,0 +1,83 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+import { buildExportPayload, describeApiError, filenameFromDisposition } from '../js/core/export.js';
+import { defaultSettings, parseProject, sanitizeSettings, serializeProject } from '../js/core/project.js';
+import { Sequence } from '../js/core/sequence.js';
+
+const settings = (overrides = {}) => ({ ...defaultSettings(), ...overrides });
+
+function sequenceWithNote(lengthTicks = 192) {
+  const seq = new Sequence(lengthTicks);
+  seq.addNote({ instrument: 'piano', midi: 60, start: 0, duration: 12 });
+  return seq;
+}
+
+test('payload de exportação segue o contrato da API', () => {
+  const result = buildExportPayload(sequenceWithNote(), settings({ bpm: 120, loop: true, loops: 3 }));
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.payload, {
+    bpm: 120,
+    length: 8, // 4 compassos × 4 batidas × 0,5 s
+    loop: true,
+    loops: 3,
+    format: 'mp3',
+    events: [{ time: 0, note: 'C4', duration: 0.5, instrument: 'piano' }],
+  });
+});
+
+test('exportação sem notas é bloqueada com mensagem clara', () => {
+  const result = buildExportPayload(new Sequence(192), settings());
+  assert.equal(result.ok, false);
+  assert.match(result.error, /pelo menos uma nota/);
+});
+
+test('exportação longa demais é bloqueada antes de chamar o servidor', () => {
+  // 16 compassos a 40 BPM = 96 s; × 32 loops = 3072 s > 600 s
+  const result = buildExportPayload(sequenceWithNote(16 * 48), settings({ bpm: 40, loop: true, loops: 32 }));
+  assert.equal(result.ok, false);
+  assert.match(result.error, /máximo 600 s/);
+  // Sem loop o mesmo projeto passa.
+  assert.equal(buildExportPayload(sequenceWithNote(16 * 48), settings({ bpm: 40, loop: false, loops: 32 })).ok, true);
+});
+
+test('todos os eventos ficam dentro do padrão (time < length) em qualquer divisão', () => {
+  const seq = new Sequence(192);
+  seq.addNote({ instrument: 'lead', midi: 70, start: 190, duration: 2 }); // última célula 1/6
+  const { payload } = buildExportPayload(seq, settings({ bpm: 133 }));
+  for (const event of payload.events) assert.ok(event.time < payload.length);
+});
+
+test('mensagens de erro da API ficam legíveis', () => {
+  const body = { detail: [{ loc: ['body', 'events', 0, 'note'], msg: 'String should match pattern' }] };
+  assert.equal(describeApiError(422, body), 'String should match pattern (events.0.note)');
+  assert.equal(describeApiError(422, { detail: [{ loc: ['body'], msg: 'Value error, áudio final muito longo' }] }), 'áudio final muito longo');
+  assert.equal(describeApiError(500, { detail: 'Erro interno ao gerar o áudio.' }), 'Erro interno ao gerar o áudio.');
+  assert.equal(describeApiError(502, null), 'O servidor respondeu com erro 502.');
+});
+
+test('nome do arquivo vem do Content-Disposition', () => {
+  assert.equal(filenameFromDisposition('attachment; filename="beat-productor-20261119-101010.mp3"', 'x.mp3'), 'beat-productor-20261119-101010.mp3');
+  assert.equal(filenameFromDisposition(null, 'x.mp3'), 'x.mp3');
+});
+
+test('configurações salvas são saneadas', () => {
+  assert.deepEqual(sanitizeSettings(null), defaultSettings());
+  assert.deepEqual(
+    sanitizeSettings({ instrument: 'tuba', division: '1/3', bpm: 9999, bars: 'x', loop: 'sim', loops: -4 }),
+    { ...defaultSettings(), bpm: 240, loops: 1 },
+  );
+  const valid = { instrument: 'lofi', division: '1/6', bpm: 90, bars: 8, loop: true, loops: 7 };
+  assert.deepEqual(sanitizeSettings(valid), valid);
+  assert.equal(sanitizeSettings({ division: 'toString' }).division, defaultSettings().division);
+});
+
+test('projeto ida e volta e rejeição de dados corrompidos', () => {
+  const seq = sequenceWithNote();
+  const text = serializeProject(settings({ bpm: 100 }), seq);
+  const parsed = parseProject(text);
+  assert.equal(parsed.settings.bpm, 100);
+  assert.deepEqual(parsed.notes, seq.toJSON());
+  for (const bad of [null, '', '{', '[]', '{"version":99}', 'null']) assert.equal(parseProject(bad), null);
+  assert.deepEqual(parseProject('{"version":1,"notes":"x"}').notes, []);
+});

@@ -37,7 +37,14 @@ Abra **http://127.0.0.1:8000**. Na primeira execução o script cria o `.venv` e
 powershell -ExecutionPolicy Bypass -File scripts\test.ps1   # ou: scripts/test.sh
 ```
 
-Roda, em sequência: pytest (backend), `node:test` + verificação de sintaxe (frontend) e o E2E em navegador headless.
+Roda, em sequência: pytest (backend), `node:test` + verificação de sintaxe (frontend) e o E2E em navegador headless
+(incluindo uma exportação MP3 real).
+
+| Suíte | Quantidade |
+|---|---|
+| Backend (pytest) | 88 testes |
+| Frontend (`node:test`) | 48 testes |
+| E2E (Chrome/Edge headless) | 23 verificações |
 
 ## Estrutura de diretórios
 
@@ -56,11 +63,16 @@ BeatProductor/
 │   │   │   ├── sequence.js   #   modelo das notas
 │   │   │   ├── store.js      #   estado da aplicação
 │   │   │   ├── schedule.js   #   notas numa janela de tempo (agendamento)
+│   │   │   ├── export.js     #   pedido de exportação + pré-validação
+│   │   │   ├── project.js    #   projeto salvo (serialização/saneamento)
 │   │   │   └── transport.js  #   relógio musical (play/pause/seek/loop)
 │   │   ├── audio/            # Web Audio API
 │   │   │   ├── engine.js     #   AudioContext, master, vozes
 │   │   │   ├── instruments.js#   síntese dos 4 instrumentos
 │   │   │   └── scheduler.js  #   agendador com lookahead
+│   │   ├── services/         # Mundo externo
+│   │   │   ├── api.js        #   chamada ao backend e download
+│   │   │   └── storage.js    #   salvamento automático (localStorage)
 │   │   └── ui/               # Componentes de interface (DOM)
 │   ├── tests/                # Testes unitários (node:test)
 │   ├── scripts/              # Verificação de sintaxe/imports
@@ -89,4 +101,4 @@ BeatProductor/
 - [x] **Fase 1** — Estrutura base, grid de 3 oitavas e cursor de reprodução
 - [x] **Fase 2** — Web Audio API (playback local)
 - [x] **Fase 3** — Backend Python e síntese
-- [ ] **Fase 4** — Exportação MP3 e ajustes finais
+- [x] **Fase 4** — Exportação MP3 e ajustes finais

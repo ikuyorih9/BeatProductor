@@ -24,7 +24,7 @@ for _ in $(seq 1 50); do
   "$PYTHON" -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:$PORT/api/health')" 2>/dev/null && break
   sleep 0.2
 done
-node "$ROOT/tests/e2e/smoke.mjs" "http://127.0.0.1:$PORT/"
+node "$ROOT/tests/e2e/smoke.mjs" "http://127.0.0.1:$PORT/" --export
 
 echo
 echo "Todos os testes passaram."

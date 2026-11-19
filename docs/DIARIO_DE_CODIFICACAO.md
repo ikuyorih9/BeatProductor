@@ -136,3 +136,57 @@ em cada fase do roadmap (ver [especificação](especificacao/especificacao-mvp.m
   continuidade na emenda do loop, normalização, 13 casos de pedido inválido → 422, frontend servido com MIME correto
   e **decodificação do MP3 com ffmpeg** sem erros e com a duração esperada.
 - `scripts/test.ps1` e `scripts/test.sh`: backend + 40 testes do frontend + E2E 20/20 contra o servidor FastAPI.
+
+---
+
+## 2026-11-19 — Fase 4: exportação de arquivo e ajustes finais
+
+**Feito**
+- **Exportação integrada:** `core/export.js` monta o pedido a partir do grid (ticks → segundos) com loop e
+  quantidade de repetições; `services/api.js` chama `POST /api/export`, recebe o MP3 e dispara o download
+  (`Blob` + `<a download>`), usando o nome enviado pelo servidor.
+- **Pré-validação no navegador** com os mesmos limites do backend: sequência vazia e áudio > 600 s geram mensagem
+  clara sem chamar o servidor. Erros 422 do FastAPI são traduzidos para uma frase legível.
+- Botão em estado *"Gerando…"* (bloqueia clique duplo) e mensagens de sucesso/erro.
+- **Salvamento automático** no `localStorage` (`services/storage.js` + `core/project.js`): configurações e notas,
+  com saneamento de tudo que é lido (dados corrompidos caem nos padrões). Salva também no `pagehide`.
+- **Polimento de sincronia:**
+  - destaques de tecla pendentes são cancelados no pause/seek (antes, uma tecla podia acender depois do pause);
+  - um arraste em andamento é cancelado se a geometria mudar (BPM/divisão/compassos), evitando nota no lugar errado;
+  - se o sistema suspender o `AudioContext`, o transporte pausa (o cursor não segue andando em silêncio);
+  - `togglePlayback` ignora disparos repetidos enquanto o áudio está sendo liberado.
+- Polimento visual: faixa com a cor do instrumento no seletor; CSS sem regras mortas.
+- Manual de uso reescrito (tutorial "primeiro beat", exportação, salvamento, problemas comuns).
+
+**Decisões**
+- Download via `Blob` em vez de navegar até uma URL: permite exibir os erros do servidor na própria interface.
+- Salvamento local (não no servidor): o MVP não tem contas de usuário; o navegador é o lugar natural.
+- Os scripts de teste agora rodam o E2E com `--export`, exercitando o fluxo completo navegador → API → arquivo baixado.
+
+**Verificação**
+- 48 testes unitários do frontend (+8: payload no formato da API, bloqueios de validação, eventos sempre dentro do
+  padrão inclusive em 1/6 com BPM "quebrado", mensagens de erro, nome do arquivo, saneamento e ida-e-volta do projeto).
+- 88 testes do backend.
+- **E2E 23/23** no Chrome headless contra o servidor FastAPI: inclui exportação real com loop (arquivo `.mp3` baixado
+  e com cabeçalho válido), erro amigável ao exportar sem notas e projeto restaurado após recarregar a página —
+  sem nenhum erro de JavaScript no console.
+- `scripts/test.ps1` e `scripts/test.sh` passam do início ao fim; `scripts/run.ps1` sobe o servidor e responde em `/api/health`.
+
+---
+
+## Resumo final
+
+| Requisito | Onde |
+|---|---|
+| RF01 Seleção de instrumentos | `ui/header.js`, `audio/instruments.js`, `backend/app/audio/instruments.py` |
+| RF02 Tempo e BPM em tempo real | `core/timing.js`, `core/transport.js` (`setBpm`) |
+| RF03 Grid de 3 oitavas, notas curtas e arrastadas | `ui/grid.js`, `core/layout.js`, `core/sequence.js` |
+| RF04 Playback no navegador | `audio/engine.js`, `audio/scheduler.js` |
+| RF05 Transporte (play/pause/início/fim) | `ui/transport-controls.js`, `core/transport.js` |
+| RF06 Loop e quantidade de repetições | `core/transport.js`, `core/schedule.js`, `backend/app/audio/renderer.py` |
+| RF07 Exportação | `core/export.js`, `services/api.js`, `backend/app/api/routes.py` |
+| RNF01 Sincronia cursor/áudio | relógio único (`AudioContext.currentTime`) + compensação de latência |
+| RNF02 Sem build/dependências pesadas | Vanilla JS em ES Modules + Tailwind via CDN, zero pacotes npm |
+| RNF03 MP3 limpo, sem cortes no loop | overlap-add, normalização −1 dBFS, fades de borda |
+
+**Totais:** 88 testes pytest · 48 testes `node:test` · 23 verificações E2E em navegador real.

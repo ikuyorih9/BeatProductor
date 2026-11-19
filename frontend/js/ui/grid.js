@@ -57,6 +57,8 @@ export class PianoRollGrid {
 
   /** Recalcula as dimensões (BPM, divisão ou compassos mudaram). */
   applyLayout(layout) {
+    // Um arraste em andamento usa a geometria antiga: cancela para não criar nota no lugar errado.
+    if (this.drag) this._cancelDrag();
     this.layout = layout;
     const { width, cellWidth, beatWidth, barWidth } = layout;
     this.el.grid.style.width = `${width}px`;

@@ -326,6 +326,21 @@ if (await evaluate('typeof window.__beatProductor.audio === "object"')) {
   });
 }
 
+await check('projeto é salvo e restaurado após recarregar a página', async () => {
+  await setControl('bpm-input', 100);
+  await setControl('instrument-select', 'lofi');
+  const before = await evaluate('JSON.stringify(window.__beatProductor.sequence.toJSON())');
+  assert.ok(JSON.parse(before).length > 0, 'deveria haver notas antes de recarregar');
+  await sleep(700); // salvamento automático agrupa mudanças (400 ms)
+  await page('Page.reload');
+  await waitFor('document.readyState === "complete" && !!window.__beatProductor', 15000, 'app recarregado');
+  assert.equal(await evaluate('JSON.stringify(window.__beatProductor.sequence.toJSON())'), before);
+  assert.equal(await evaluate('document.getElementById("bpm-input").value'), '100');
+  assert.equal(await evaluate('document.getElementById("instrument-select").value'), 'lofi');
+  assert.ok(await evaluate('document.querySelectorAll(".note").length') > 0, 'notas não desenhadas');
+  await setControl('bpm-input', 120);
+});
+
 if (testExport) {
   await check('exportação gera e baixa um MP3 válido', async () => {
     await setControl('loop-checkbox', true);
@@ -345,7 +360,15 @@ if (testExport) {
     const isId3 = head.toString('latin1') === 'ID3';
     const isFrameSync = head[0] === 0xff && (head[1] & 0xe0) === 0xe0;
     assert.ok(isId3 || isFrameSync, 'cabeçalho MP3 inválido');
+    await waitFor('!!document.querySelector(".toast-success")', 3000, 'mensagem de sucesso');
+    await waitFor('!document.getElementById("export-button").disabled', 3000, 'botão reabilitado');
     await setControl('loop-checkbox', false);
+  });
+
+  await check('exportar sem notas mostra erro amigável (sem chamar o servidor)', async () => {
+    await evaluate('window.__beatProductor.sequence.clear()');
+    await clickElement('#export-button');
+    await waitFor('[...document.querySelectorAll(".toast-error")].some(t => t.textContent.includes("pelo menos uma nota"))', 3000, 'erro de validação');
   });
 }
 

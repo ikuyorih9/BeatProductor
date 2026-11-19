@@ -87,7 +87,6 @@ html, body { height: 100%; }
   pointer-events: none; background: rgba(56, 189, 248, .35);
   border: 1px dashed #7dd3fc; z-index: 5;
 }
-.note.is-playing { filter: brightness(1.5); }
 
 /* ---------- Cursor de reprodução ---------- */
 .playhead {

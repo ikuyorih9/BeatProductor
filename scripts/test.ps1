@@ -35,7 +35,7 @@ try {
     catch { Start-Sleep -Milliseconds 200 }
   }
   if (-not $ready) { throw "O servidor não respondeu na porta $Port (ela pode estar em uso: tente -Port 8766)." }
-  node (Join-Path $Root "tests\e2e\smoke.mjs") "http://127.0.0.1:$Port/"
+  node (Join-Path $Root "tests\e2e\smoke.mjs") "http://127.0.0.1:$Port/" --export
   if ($LASTEXITCODE -ne 0) { throw "Falhou: E2E" }
 } finally {
   Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
