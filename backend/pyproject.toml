@@ -1,0 +1,13 @@
+[project]
+name = "beat-productor-backend"
+version = "1.0.0"
+description = "API de síntese e exportação de áudio do Beat Productor"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = [
+    # O TestClient do Starlette sugere migrar para "httpx2"; o httpx atual funciona normalmente.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]

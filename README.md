@@ -5,10 +5,39 @@ Aplicação web minimalista para criação rápida de beats e sequências musica
 - **Frontend:** HTML5 + Tailwind CSS (CDN) + Vanilla JS (ES Modules) + Web Audio API.
 - **Backend:** Python (FastAPI) + NumPy/SciPy para síntese e exportação do áudio.
 
-📘 **[Manual de uso](docs/MANUAL_DE_USO.md)** · 📓 **[Diário de codificação](docs/DIARIO_DE_CODIFICACAO.md)** ·
+📘 **[Manual de uso](docs/MANUAL_DE_USO.md)** · 📓 **[Diário de codificação](docs/DIARIO_DE_CODIFICACAO.md)** · 🔌 **[API](docs/API.md)** ·
 📐 **[Especificação do MVP](docs/especificacao/especificacao-mvp.md)** · 📝 **[Requisitos originais](docs/especificacao/requisitos.md)**
 
 ---
+
+## Requisitos
+
+- **Python 3.10+** (testado com 3.12)
+- **Node.js 21+** — apenas para rodar os testes do frontend/E2E
+- **Chrome ou Edge** — para o teste E2E (ou defina `CHROME_PATH`)
+- Conexão com a internet no navegador (Tailwind via CDN)
+
+## Execução rápida
+
+```powershell
+# Windows (PowerShell)
+powershell -ExecutionPolicy Bypass -File scripts\run.ps1
+```
+
+```bash
+# Linux / macOS / Git Bash
+scripts/run.sh
+```
+
+Abra **http://127.0.0.1:8000**. Na primeira execução o script cria o `.venv` e instala as dependências.
+
+## Testes
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\test.ps1   # ou: scripts/test.sh
+```
+
+Roda, em sequência: pytest (backend), `node:test` + verificação de sintaxe (frontend) e o E2E em navegador headless.
 
 ## Estrutura de diretórios
 
@@ -18,7 +47,7 @@ BeatProductor/
 │   ├── index.html
 │   ├── css/styles.css        # Estilos complementares ao Tailwind
 │   ├── js/
-│   │   ├── main.js           # Ponto de entrada: liga estado, UI e transporte
+│   │   ├── main.js           # Ponto de entrada: liga estado, UI, áudio e transporte
 │   │   ├── config.js         # Constantes (ticks, faixas, instrumentos)
 │   │   ├── core/             # Lógica pura, sem DOM (testável no Node)
 │   │   │   ├── music.js      #   notas, MIDI, frequências, bateria
@@ -36,29 +65,28 @@ BeatProductor/
 │   ├── tests/                # Testes unitários (node:test)
 │   ├── scripts/              # Verificação de sintaxe/imports
 │   └── package.json          # Só scripts de teste — sem dependências
-├── backend/                  # API Python (Fase 3)
+├── backend/                  # API Python (FastAPI) — também serve o frontend
+│   ├── app/
+│   │   ├── main.py           # Criação da aplicação + arquivos estáticos
+│   │   ├── schemas.py        # Contrato JSON (Pydantic)
+│   │   ├── api/routes.py     # /api/health e /api/export
+│   │   ├── audio/
+│   │   │   ├── instruments.py#   síntese NumPy/SciPy dos 4 instrumentos
+│   │   │   ├── renderer.py   #   mixagem, loops (overlap-add), normalização
+│   │   │   └── encoder.py    #   WAV e MP3 (lameenc)
+│   │   └── core/             # Configuração e teoria musical
+│   ├── tests/                # Testes pytest
+│   ├── requirements.txt      # Dependências de execução
+│   ├── requirements-dev.txt  # + dependências de teste
+│   └── pyproject.toml        # Configuração do pytest
 ├── tests/e2e/                # Teste ponta a ponta em navegador headless (CDP)
-├── docs/                     # Manual, diário e especificação
-└── scripts/                  # Scripts de execução e teste
-```
-
-## Execução rápida
-
-```powershell
-python -m http.server 8000 --directory frontend
-# abra http://127.0.0.1:8000
-```
-
-## Testes
-
-```powershell
-cd frontend; npm test; npm run check          # unitários + sintaxe/imports
-node tests/e2e/smoke.mjs http://127.0.0.1:8000/   # E2E (com o servidor rodando)
+├── docs/                     # Manual, diário, API e especificação
+└── scripts/                  # run.ps1/.sh (executar) e test.ps1/.sh (testar tudo)
 ```
 
 ## Roadmap
 
 - [x] **Fase 1** — Estrutura base, grid de 3 oitavas e cursor de reprodução
 - [x] **Fase 2** — Web Audio API (playback local)
-- [ ] **Fase 3** — Backend Python e síntese
+- [x] **Fase 3** — Backend Python e síntese
 - [ ] **Fase 4** — Exportação MP3 e ajustes finais

@@ -92,3 +92,47 @@ em cada fase do roadmap (ver [especificação](especificacao/especificacao-mvp.m
 - 40 testes unitários (+8: janelas de agendamento, travessia de loop, janelas consecutivas sem duplicar/perder, `tickAt`).
 - E2E 20/20: `AudioContext` em `running`, vozes agendadas durante o play, pré-escuta, e **renderização offline de cada
   instrumento em 5 notas** (sem NaN, pico entre 0,02 e 1,0).
+
+---
+
+## 2026-11-19 — Fase 3: backend em Python e estrutura de dados
+
+**Feito**
+- API **FastAPI** (`backend/app`) com `GET /api/health` e `POST /api/export`; o mesmo servidor entrega o frontend.
+- Contrato JSON validado com **Pydantic** (`schemas.py`): `{ time, note, duration, instrument }` por evento,
+  mais `length`, `loop`, `loops`, `bpm` e `format`. Ver [API.md](API.md).
+- Síntese em **NumPy/SciPy** (`audio/instruments.py`) espelhando os timbres do navegador: parciais do piano,
+  bumbo com queda de frequência, caixa/hi-hats com ruído filtrado (Butterworth), lofi com vibrato e passa-baixa,
+  lead com dente-de-serra **PolyBLEP** (menos aliasing).
+- Mixagem (`audio/renderer.py`) com *overlap-add* das repetições, normalização a −1 dBFS e fades de borda.
+- Codificação (`audio/encoder.py`): WAV pela biblioteca padrão e MP3 192 kbps pelo `lameenc`.
+- Scripts `scripts/run.ps1|sh` (cria `.venv`, instala e sobe o servidor) e `scripts/test.ps1|sh` (roda tudo).
+
+**Decisões**
+- **FastAPI** em vez de Flask: validação declarativa do JSON, respostas 422 detalhadas e documentação `/docs` grátis.
+- **`lameenc` em vez de `pydub`** para o MP3: o `pydub` depende do binário externo **ffmpeg** (fora do pip), uma fonte
+  clássica de erro de instalação. O `lameenc` traz o encoder LAME como wheel — `pip install` e pronto.
+  A mixagem que o `pydub` faria (somar trechos, ajustar ganho) é feita diretamente em NumPy, com mais controle.
+- **Tempos em segundos** no contrato (como no exemplo da especificação); o frontend converte a partir dos ticks.
+- **Loops por overlap-add** de uma única passada renderizada: barato (renderiza o padrão uma vez) e garante que as
+  caudas atravessem as emendas — nenhuma repetição começa com corte abrupto (RNF03).
+- **Limites de segurança**: 5000 eventos, padrão ≤ 120 s, total ≤ 600 s — evita que um pedido derrube o servidor por memória.
+- **Tolerância de ponto flutuante** (1e-6) ao validar `time < length`: divisões 1/6 geram dízimas no navegador.
+- Rota de exportação síncrona (`def`): o FastAPI a executa no pool de threads, sem bloquear o loop de eventos.
+- `mimetypes` fixado para `.js`/`.css`: no Windows o registro pode mapear `.js` para `text/plain`, e o navegador
+  recusaria os ES Modules.
+
+**Problemas encontrados**
+- O `TestClient` do Starlette emite um aviso de depreciação sugerindo o pacote `httpx2`. A instalação desse pacote
+  foi bloqueada pela política de permissões do ambiente; como o `httpx` atual funciona normalmente, o aviso foi
+  filtrado em `pyproject.toml` (somente essa mensagem).
+- `scripts/test.ps1` falhou na primeira execução porque a porta 8765 ainda estava ocupada pelo servidor estático
+  usado nas fases 1–2 → processo encerrado e a mensagem de erro do script passou a sugerir outra porta.
+- Scripts `.ps1` salvos com BOM UTF-8: o Windows PowerShell 5.1 lê arquivos sem BOM como ANSI e corromperia os acentos.
+
+**Verificação**
+- **88 testes pytest**: teoria musical (paridade com o frontend), cada instrumento × 7 notas (finito, audível, sem
+  clipping, termina em silêncio), ADSR, posição exata da nota em amostras, voltas idênticas amostra a amostra,
+  continuidade na emenda do loop, normalização, 13 casos de pedido inválido → 422, frontend servido com MIME correto
+  e **decodificação do MP3 com ffmpeg** sem erros e com a duração esperada.
+- `scripts/test.ps1` e `scripts/test.sh`: backend + 40 testes do frontend + E2E 20/20 contra o servidor FastAPI.

@@ -9,16 +9,32 @@ ouve o resultado no navegador e exporta um arquivo de áudio.
 
 ## 1. Como abrir o aplicativo
 
-Enquanto o backend não existe (Fase 1), sirva a pasta `frontend/` com qualquer servidor estático:
+### Pré-requisitos
+- **Python 3.10 ou mais novo** ([python.org](https://www.python.org/downloads/)) — no Windows, marque *"Add Python to PATH"* na instalação.
+- Chrome, Edge ou Firefox atualizado, com acesso à internet.
+
+### Iniciar
+
+**Windows** — abra o PowerShell na pasta do projeto e rode:
 
 ```powershell
-python -m http.server 8000 --directory frontend
+powershell -ExecutionPolicy Bypass -File scripts\run.ps1
 ```
 
-Abra **http://127.0.0.1:8000** no Chrome, Edge ou Firefox.
+**Linux / macOS / Git Bash:**
+
+```bash
+scripts/run.sh
+```
+
+Na primeira vez o script cria o ambiente Python (`.venv`) e instala as dependências (leva cerca de 1 minuto).
+Quando aparecer *"Beat Productor rodando em http://127.0.0.1:8000"*, abra esse endereço no navegador.
+
+- Outra porta: `scripts\run.ps1 -Port 9000` (Windows) ou `scripts/run.sh 9000`.
+- Encerrar: **Ctrl+C** no terminal.
 
 > Abrir o `index.html` direto pelo explorador de arquivos (`file://`) **não funciona**: o navegador
-> bloqueia módulos JavaScript fora de um servidor.
+> bloqueia módulos JavaScript fora de um servidor — use sempre o script.
 
 ---
 
@@ -125,5 +141,8 @@ Os atalhos ficam desativados enquanto você digita num campo (BPM, Compassos, Lo
 |---|---|
 | Não sai som | Clique em PLAY ou numa tecla (o navegador só libera o áudio após um clique) e confira o volume. Se aparecer "Áudio indisponível", o navegador não suporta Web Audio API — use Chrome, Edge ou Firefox atualizados. |
 | Som falha com a aba em segundo plano | O navegador reduz os timers de abas ocultas; mantenha a aba visível durante a reprodução. |
+| `python` não é reconhecido | Instale o Python 3.10+ marcando *"Add Python to PATH"* e abra um novo terminal. |
+| "A execução de scripts foi desabilitada" | Use exatamente `powershell -ExecutionPolicy Bypass -File scripts\run.ps1`. |
+| Porta 8000 em uso | Rode com outra porta (`scripts\run.ps1 -Port 9000`) e abra `http://127.0.0.1:9000`. |
 | Página em branco ou sem estilo | Verifique a conexão com a internet (o Tailwind é carregado via CDN) e se abriu por `http://`, não `file://`. |
 | BPM volta para outro valor | Valores fora da faixa 40–240 são corrigidos automaticamente ao sair do campo. |
