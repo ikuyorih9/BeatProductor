@@ -17,7 +17,7 @@ from typing import Iterable
 
 import numpy as np
 
-from ..core.config import MAX_TAIL_SECONDS, SAMPLE_RATE, TARGET_PEAK
+from ..core.config import INSTRUMENT_TRIM, MAX_TAIL_SECONDS, SAMPLE_RATE, TARGET_PEAK
 from ..core.music import note_to_midi
 from .instruments import render_note
 
@@ -30,12 +30,13 @@ class Event:
     note: str
     duration: float
     instrument: str
+    gain: float = 1.0
 
 
 def render_pass(events: Iterable[Event], length: float, sr: int = SAMPLE_RATE) -> np.ndarray:
     """Renderiza uma passada do padrão. O array pode ser maior que `length` (caudas)."""
     pattern_samples = int(round(length * sr))
-    rendered: list[tuple[int, np.ndarray]] = []
+    rendered: list[tuple[int, np.ndarray, float]] = []
     cache: dict[tuple[str, int, int], np.ndarray] = {}
     end = pattern_samples
 
@@ -47,12 +48,14 @@ def render_pass(events: Iterable[Event], length: float, sr: int = SAMPLE_RATE) -
             cache[key] = render_note(event.instrument, midi, duration_samples / sr, sr)
         start = int(round(event.time * sr))
         voice = cache[key]
-        rendered.append((start, voice))
+        # Calibração do instrumento × volume escolhido (o cache guarda a voz sem ganho).
+        rendered.append((start, voice, INSTRUMENT_TRIM.get(event.instrument, 1.0) * event.gain))
         end = max(end, start + len(voice))
 
     buffer = np.zeros(end, dtype=np.float32)
-    for start, voice in rendered:
-        buffer[start:start + len(voice)] += voice
+    for start, voice, scale in rendered:
+        if scale > 0:
+            buffer[start:start + len(voice)] += voice * np.float32(scale)
     return buffer
 
 

@@ -7,15 +7,16 @@
  *     clique numa célula vazia → nota de 1 célula; clicar e arrastar → nota longa;
  *     clique numa nota/pausa → apaga.
  * - Ferramenta SELECIONAR (ou Shift+arrastar em qualquer ferramenta):
- *     arrastar → retângulo de seleção; clique num bloco → seleciona só ele;
+ *     arrastar no vazio → retângulo de seleção; clique num bloco → seleciona só ele;
+ *     arrastar um bloco → MOVE a seleção (para cima/baixo = altura, para os lados = tempo);
  *     Shift+clique → adiciona/remove da seleção; clique no vazio → limpa a seleção.
  * - Botão direito: célula vazia → PAUSA de 1 célula; sobre nota/pausa → apaga.
  * - Clique na régua → posiciona o cursor.
  */
-import { BEATS_PER_BAR, INSTRUMENTS, ROW_HEIGHT } from '../config.js';
+import { INSTRUMENTS, ROW_HEIGHT } from '../config.js';
 import { cellAtX, dragToSpan, rowAtY } from '../core/layout.js';
 import { isBlackKey, midiToName, pitchClass } from '../core/music.js';
-import { itemsInRect } from '../core/selection.js';
+import { clampMove, itemsInRect } from '../core/selection.js';
 import { formatBarBeat } from '../core/timing.js';
 import { createElement } from './dom.js';
 
@@ -34,8 +35,9 @@ export class PianoRollGrid {
    * @param {(id:number) => void} options.onRemove
    * @param {(tick:number) => void} options.onSeek
    * @param {(ids:number[]) => void} options.onSelectionChange
+   * @param {(ids:number[], dMidi:number, dTicks:number) => void} options.onMove
    */
-  constructor({ elements, range, sequence, getState, onAdd, onAddRest, onRemove, onSeek, onSelectionChange }) {
+  constructor({ elements, range, sequence, getState, onAdd, onAddRest, onRemove, onSeek, onSelectionChange, onMove }) {
     this.el = elements;
     this.range = range;
     this.rowIndex = new Map(range.map((midi, index) => [midi, index]));
@@ -46,9 +48,11 @@ export class PianoRollGrid {
     this.onRemove = onRemove;
     this.onSeek = onSeek;
     this.onSelectionChange = onSelectionChange;
+    this.onMove = onMove;
     this.layout = null;
     this.drag = null;
     this.marquee = null;
+    this.move = null;
     this.selection = new Set();
 
     this._renderRows();
@@ -73,6 +77,7 @@ export class PianoRollGrid {
     // Arrastes em andamento usam a geometria antiga: cancela para não agir no lugar errado.
     if (this.drag) this._cancelDrag();
     if (this.marquee) this._cancelMarquee();
+    if (this.move) this._cancelMove();
     this.layout = layout;
     const { width, cellWidth, beatWidth, barWidth } = layout;
     this.el.grid.style.width = `${width}px`;
@@ -91,11 +96,11 @@ export class PianoRollGrid {
   }
 
   _renderRuler() {
-    const { bars, barWidth, beatWidth } = this.layout;
+    const { bars, barWidth, beatWidth, beatsPerBar } = this.layout;
     const fragment = document.createDocumentFragment();
     for (let bar = 0; bar < bars; bar += 1) {
       fragment.appendChild(createElement('div', 'ruler-label', { style: `left:${bar * barWidth}px`, text: String(bar + 1) }));
-      for (let beat = 0; beat < BEATS_PER_BAR; beat += 1) {
+      for (let beat = 0; beat < beatsPerBar; beat += 1) {
         const height = beat === 0 ? 24 : 6;
         fragment.appendChild(createElement('div', 'ruler-tick', {
           style: `left:${bar * barWidth + beat * beatWidth}px;height:${height}px`,
@@ -130,7 +135,7 @@ export class PianoRollGrid {
       const label = rest ? 'Pausa' : midiToName(item.midi);
       const element = createElement('div', classes.join(' '), {
         'data-id': String(item.id),
-        title: own ? `${label} · ${formatBarBeat(item.start)}` : '',
+        title: own ? `${label} · ${formatBarBeat(item.start, this.layout.meter)}` : '',
       });
       element.style.left = `${item.start * pxPerTick}px`;
       element.style.width = `${Math.max(4, item.duration * pxPerTick - 1)}px`;
@@ -254,6 +259,41 @@ export class PianoRollGrid {
     this.setSelection(additive ? [...this.selection, ...hits] : hits);
   }
 
+  // ---------------------------------------------------------------- mover a seleção arrastando
+  _startMove(event) {
+    this.move = { pointerId: event.pointerId, x0: event.clientX, y0: event.clientY, dRows: 0, dTicks: 0 };
+    this._capture(event.pointerId);
+  }
+
+  _updateMove(event) {
+    const { cellWidth, ticksPerCell, pxPerTick, lengthTicks } = this.layout;
+    const wantedRows = Math.round((event.clientY - this.move.y0) / ROW_HEIGHT);
+    const wantedTicks = Math.round((event.clientX - this.move.x0) / cellWidth) * ticksPerCell;
+    const selected = this._ownItems().filter((item) => this.selection.has(item.id));
+    const { dRows, dTicks } = clampMove(selected, wantedRows, wantedTicks, {
+      rowIndex: this.rowIndex, rowCount: this.range.length, lengthTicks,
+    });
+    if (dRows === this.move.dRows && dTicks === this.move.dTicks) return;
+    this.move.dRows = dRows;
+    this.move.dTicks = dTicks;
+    this.el.grid.classList.add('is-moving');
+    const transform = dRows === 0 && dTicks === 0 ? '' : `translate(${dTicks * pxPerTick}px, ${dRows * ROW_HEIGHT}px)`;
+    for (const element of this.el.notes.querySelectorAll('.note.is-selected')) element.style.transform = transform;
+  }
+
+  _cancelMove() {
+    this.move = null;
+    this.el.grid.classList.remove('is-moving');
+    for (const element of this.el.notes.querySelectorAll('.note.is-selected')) element.style.transform = '';
+  }
+
+  _finishMove() {
+    const { dRows, dTicks } = this.move;
+    this._cancelMove();
+    // Linhas de cima são as notas mais agudas: descer uma linha = -1 semitom.
+    if (dRows !== 0 || dTicks !== 0) this.onMove(this.getSelection(), -dRows, dTicks);
+  }
+
   // ---------------------------------------------------------------- eventos
   _bindGridEvents() {
     const grid = this.el.grid;
@@ -274,7 +314,9 @@ export class PianoRollGrid {
           else next.add(id);
           this.setSelection([...next]);
         } else {
-          this.setSelection([id]);
+          // Clicar num bloco já selecionado mantém o grupo (para arrastá-lo junto).
+          if (!this.selection.has(id)) this.setSelection([id]);
+          this._startMove(event);
         }
         return;
       }
@@ -293,6 +335,10 @@ export class PianoRollGrid {
     });
 
     grid.addEventListener('pointermove', (event) => {
+      if (this.move && event.pointerId === this.move.pointerId) {
+        this._updateMove(event);
+        return;
+      }
       if (this.marquee && event.pointerId === this.marquee.pointerId) {
         const { x, y } = this._localPoint(event);
         this.marquee.x1 = x;
@@ -309,6 +355,10 @@ export class PianoRollGrid {
     });
 
     grid.addEventListener('pointerup', (event) => {
+      if (this.move && event.pointerId === this.move.pointerId) {
+        this._finishMove();
+        return;
+      }
       if (this.marquee && event.pointerId === this.marquee.pointerId) {
         this._finishMarquee();
         return;
@@ -321,6 +371,7 @@ export class PianoRollGrid {
     });
 
     grid.addEventListener('pointercancel', () => {
+      if (this.move) this._cancelMove();
       this._cancelDrag();
       this._cancelMarquee();
     });

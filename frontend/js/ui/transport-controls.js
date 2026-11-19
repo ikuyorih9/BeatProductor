@@ -22,8 +22,8 @@ export function initTransportControls({ onStart, onToggle, onEnd }) {
       playButton.textContent = playing ? '⏸ PAUSE' : '▶ PLAY';
       playButton.setAttribute('aria-pressed', String(playing));
     },
-    setPosition(tick, bpm) {
-      const position = formatBarBeat(tick);
+    setPosition(tick, bpm, meter) {
+      const position = formatBarBeat(tick, meter);
       const clock = formatClock(ticksToSeconds(tick, bpm));
       if (position !== lastPosition) positionDisplay.textContent = lastPosition = position;
       if (clock !== lastClock) clockDisplay.textContent = lastClock = clock;

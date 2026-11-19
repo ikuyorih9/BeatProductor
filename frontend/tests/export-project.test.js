@@ -22,7 +22,7 @@ test('payload de exportação segue o contrato da API', () => {
     loop: true,
     loops: 3,
     format: 'mp3',
-    events: [{ time: 0, note: 'C4', duration: 0.5, instrument: 'piano' }],
+    events: [{ time: 0, note: 'C4', duration: 0.5, instrument: 'piano', gain: 1 }],
   });
 });
 
@@ -80,10 +80,16 @@ test('nome do arquivo vem do Content-Disposition', () => {
 test('configurações salvas são saneadas', () => {
   assert.deepEqual(sanitizeSettings(null), defaultSettings());
   assert.deepEqual(
-    sanitizeSettings({ instrument: 'tuba', division: '1/3', bpm: 9999, bars: 'x', loop: 'sim', loops: -4 }),
-    { ...defaultSettings(), bpm: 240, loops: 1 },
+    sanitizeSettings({
+      instrument: 'tuba', division: '1/3', meter: '7/9', bpm: 9999, bars: 'x', loop: 'sim', loops: -4,
+      volumes: { piano: 999, lead: 'x' },
+    }),
+    { ...defaultSettings(), bpm: 240, loops: 1, volumes: { ...defaultSettings().volumes, piano: 150 } },
   );
-  const valid = { instrument: 'lofi', division: '1/6', bpm: 90, bars: 8, loop: true, loops: 7 };
+  const valid = {
+    instrument: 'lofi', division: '1/16T', meter: '6/8', bpm: 90, bars: 8, loop: true, loops: 7,
+    volumes: { piano: 50, drums: 0, lofi: 100, lead: 120 },
+  };
   assert.deepEqual(sanitizeSettings(valid), valid);
   assert.equal(sanitizeSettings({ division: 'toString' }).division, defaultSettings().division);
 });
@@ -96,4 +102,19 @@ test('projeto ida e volta e rejeição de dados corrompidos', () => {
   assert.deepEqual(parsed.notes, seq.toJSON());
   for (const bad of [null, '', '{', '[]', '{"version":99}', 'null']) assert.equal(parseProject(bad), null);
   assert.deepEqual(parseProject('{"version":1,"notes":"x"}').notes, []);
+});
+
+test('projetos salvos na v1 migram a divisão para o nome da figura (mesma célula)', () => {
+  const legacy = (division) => parseProject(JSON.stringify({ version: 1, settings: { division }, notes: [] })).settings.division;
+  assert.equal(legacy('1/2'), '1/8'); // 2 células por batida = colcheia
+  assert.equal(legacy('1/4'), '1/16'); // 4 células por batida = semicolcheia
+  assert.equal(legacy('1/6'), '1/16T');
+  const v1 = parseProject(JSON.stringify({ version: 1, settings: { bpm: 90 }, notes: [] })).settings;
+  assert.equal(v1.meter, '4/4');
+  assert.deepEqual(v1.volumes, defaultSettings().volumes);
+});
+
+test('a ferramenta ativa não vai para o projeto salvo', () => {
+  const text = serializeProject({ ...settings(), tool: 'select' }, new Sequence(192));
+  assert.equal(JSON.parse(text).settings.tool, undefined);
 });

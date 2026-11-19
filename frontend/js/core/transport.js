@@ -8,16 +8,22 @@
  * - "absoluteTick" cresce sem parar enquanto toca (útil para o agendador em loop);
  * - "tick" é a posição dentro do padrão (0 … lengthTicks).
  *
+ * Dois limites:
+ * - lengthTicks = FIM DA MÚSICA: onde o play para (ou recomeça, em loop);
+ * - gridTicks   = fim do grid: até onde o cursor pode ser posicionado PARADO
+ *   (ex.: para colar notas depois da última). Dar play além do fim recomeça do início.
+ *
  * Eventos emitidos: 'play', 'pause', 'seek', 'end', 'tempo', 'reanchor'.
  */
 import { clamp, secondsPerTick } from './timing.js';
 
 export class Transport {
-  constructor({ now, bpm, lengthTicks, loop = false }) {
+  constructor({ now, bpm, lengthTicks, gridTicks = lengthTicks, loop = false }) {
     if (typeof now !== 'function') throw new TypeError('Transport requer um relógio now()');
     this._now = now;
     this.bpm = bpm;
     this.lengthTicks = lengthTicks;
+    this.gridTicks = gridTicks;
     this.loop = loop;
     this.playing = false;
     this._anchorTime = now();
@@ -46,12 +52,18 @@ export class Transport {
     return this._anchorTick + elapsed / secondsPerTick(this.bpm);
   }
 
+  /** Até onde o cursor pode ir parado: o maior entre o fim da música e o fim do grid. */
+  get seekLimit() {
+    return Math.max(this.lengthTicks, this.gridTicks);
+  }
+
   /**
-   * Posição dentro do padrão. Parado, pode valer exatamente `lengthTicks`
-   * (cursor no FIM); tocando em loop, volta a 0 a cada volta.
+   * Posição dentro do padrão. Parado, vai de 0 ao fim do grid (inclusive o FIM da música);
+   * tocando em loop, volta a 0 a cada volta.
    */
   get tick() {
     const abs = this.absoluteTick;
+    if (!this.playing) return Math.min(abs, this.seekLimit);
     if (this.lengthTicks <= 0) return 0;
     if (this.playing && this.loop) return abs % this.lengthTicks;
     return Math.min(abs, this.lengthTicks);
@@ -98,7 +110,7 @@ export class Transport {
   }
 
   seek(tick) {
-    const target = clamp(tick, 0, this.lengthTicks);
+    const target = clamp(tick, 0, this.seekLimit);
     this._reanchor(target);
     this._emit('seek');
   }
@@ -117,10 +129,18 @@ export class Transport {
     if (lengthTicks === this.lengthTicks) return;
     const position = this.tick;
     this.lengthTicks = lengthTicks;
-    let target = Math.min(position, lengthTicks);
+    // Parado, o cursor pode ficar depois do fim da música (até o fim do grid).
+    let target = Math.min(position, this.playing ? lengthTicks : this.seekLimit);
     // Tocando, não faz sentido ficar parado no fim: recomeça (loop) ou termina em update().
     if (this.playing && this.loop && target >= lengthTicks) target = 0;
     this._reanchor(target);
+  }
+
+  /** Tamanho do grid (compassos × compasso): limite do cursor parado. */
+  setGridLength(gridTicks) {
+    if (gridTicks === this.gridTicks) return;
+    this.gridTicks = gridTicks;
+    if (!this.playing && this._anchorTick > this.seekLimit) this._reanchor(this.seekLimit);
   }
 
   setLoop(loop) {

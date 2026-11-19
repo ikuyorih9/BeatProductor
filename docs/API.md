@@ -41,6 +41,7 @@ Cada evento:
 | `note` | texto | Nome científico: `C4`, `F#3`… (sem bemóis) |
 | `duration` | número | 0 < x ≤ 120 (segundos) |
 | `instrument` | texto | `piano`, `drums`, `lofi` ou `lead` |
+| `gain` | número (opcional) | 0 ≤ x ≤ 1,5 — volume do instrumento no mixer (padrão 1 = 100%; 0 = mudo). O servidor aplica por cima a calibração de cada instrumento. |
 
 Campos desconhecidos são rejeitados. A duração total (`length × repetições`) não pode passar de **600 s**.
 
@@ -53,7 +54,7 @@ Campos desconhecidos são rejeitados. A duração total (`length × repetições
   "format": "mp3",
   "events": [
     { "time": 0.0, "note": "C3", "duration": 0.125, "instrument": "drums" },
-    { "time": 0.5, "note": "C4", "duration": 0.5,   "instrument": "piano" }
+    { "time": 0.5, "note": "C4", "duration": 0.5,   "instrument": "piano", "gain": 0.8 }
   ]
 }
 ```

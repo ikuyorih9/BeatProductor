@@ -76,7 +76,9 @@ Quando aparecer *"Beat Productor rodando em http://127.0.0.1:8000"*, abra esse e
 
 ```
 ┌──────────────────────────────── CABEÇALHO ─────────────────────────────────┐
-│ Instrumento│Divisão│BPM│Compassos│☐ Loop [n]│✎/⬚ UNIR│ Limpar│Exportar MP3│
+│ Instrumento│Compasso│BPM│Compassos│Célula│☐ Loop [n]│ Importar│Exportar… │
+├──────────────────────────── BARRA DE EDIÇÃO ───────────────────────────────┤
+│ ✎/⬚ │UNIR│SEPARAR│🗑│Limpar│Limpar tudo│     ● Piano ━━○ 100%  ● Bateria …│
 ├──────┬──────────────── régua (compassos) ──────────────────────────────────┤
 │ B5   │                                                                     │
 │ A#5  │               GRID DE MONTAGEM (piano roll)                         │
@@ -92,33 +94,45 @@ Quando aparecer *"Beat Productor rodando em http://127.0.0.1:8000"*, abra esse e
 | Controle | O que faz |
 |---|---|
 | **Instrumento** | Instrumento das novas notas: Piano Acústico, Bateria, Lofi Synth ou Lead Synth. A faixa colorida à esquerda do seletor é a cor das notas desse instrumento. As notas dos outros instrumentos continuam no grid, esmaecidas. |
-| **Divisão** | Quantas células cada batida tem: `1/2` (2 células), `1/4` (4 células — padrão), `1/6` (6 células, para tercinas/swing). Trocar a divisão **não altera** as notas já criadas. |
-| **BPM** | Andamento, de 40 a 240 (padrão 120). Muda em tempo real, inclusive durante a reprodução. A largura das células acompanha o BPM. |
-| **Compassos** | Tamanho da sequência (1 a 16 compassos de 4 batidas; padrão 4). Diminuir não apaga notas: elas reaparecem ao aumentar de novo. |
+| **Compasso** | Fórmula de compasso da partitura: `2/4`, `3/4`, `4/4` (padrão), `5/4`, `6/8`, `12/8`. Define as barras de compasso, os tempos da régua e a posição *compasso.tempo*. Trocar **não move** as notas. |
+| **BPM (♩)** | Andamento em **semínimas por minuto**, de 40 a 240 (padrão 120) — o mesmo número da indicação de metrônomo "♩ = 120" da partitura. Muda em tempo real. Veja 4.7 para compassos 6/8. |
+| **Compassos** | Tamanho da sequência (1 a 16; padrão 4). Diminuir não apaga notas: elas reaparecem ao aumentar de novo. |
+| **Célula** | A **figura** de cada célula do grid, com o nome da partitura: `1/4` semínima ♩, `1/8` colcheia ♪, `1/8 tercina`, `1/16` semicolcheia (padrão), `1/16 tercina`. Um clique = uma nota dessa figura. Trocar a célula **não altera** as notas já criadas. |
 | **Loop** + número | Liga a repetição contínua da reprodução. O número ao lado (1 a 32) é a quantidade de repetições no arquivo exportado. |
-| **Edição** | Ferramenta do grid — **✎ Desenhar** ou **⬚ Selecionar** — e o botão **UNIR**, que junta as notas selecionadas da mesma linha (ver 4.1). |
-| **Limpar** | Apaga as notas e pausas do instrumento selecionado (pede confirmação). |
+| **Importar** / **Exportar projeto** | Abre / salva o projeto inteiro num arquivo de texto (ver seção 6). |
 | **Exportar MP3** | Gera o arquivo de áudio no servidor e baixa no navegador (ver seção 5). |
 
-### 3.2 Grid de montagem
+### 3.2 Barra de edição e mixer
+
+| Controle | O que faz |
+|---|---|
+| **✎ Desenhar / ⬚ Selecionar** | Ferramenta do grid (atalhos **D** e **S**). |
+| **UNIR** | Junta as notas selecionadas da mesma linha numa só (ver 4.1). Mostra quantas estão selecionadas. |
+| **SEPARAR** | O inverso: corta as notas selecionadas em células do grid (ver 4.1). Mostra quantas seriam cortadas. |
+| **🗑 (lixeira)** | Apaga as notas selecionadas. Só fica ativa quando há seleção (atalho **Delete**). |
+| **Limpar** | Apaga as notas e pausas do instrumento atual (pede confirmação). |
+| **Limpar tudo** | Apaga as notas e pausas de **todos** os instrumentos de uma vez (pede confirmação). |
+| **Mixer** | Um volume por instrumento, de 0% (mudo) a 150%. **100% já vem equilibrado**: os instrumentos foram calibrados para soar com intensidade parecida. Vale ao vivo e no MP3 exportado. **Duplo clique** no slider volta a 100%. |
+
+### 3.3 Grid de montagem
 
 - Cada **linha** é uma nota: 3 oitavas, de **B5** (topo) a **C3** (base). A tecla à esquerda mostra o nome.
-- Linhas finas = células; linhas médias = batidas; linhas fortes = compassos.
+- Linhas finas = células; linhas médias = tempos do compasso; linhas fortes = barras de compasso.
 - Linhas horizontais destacadas marcam o início de cada oitava (nota **C**).
 - A **régua** no topo numera os compassos; clicar nela move o cursor.
 
-### 3.3 Rodapé
+### 3.4 Rodapé
 
 - **⏮ INÍCIO** — leva o cursor ao começo (atalho **Home**).
 - **▶ PLAY / ⏸ PAUSE** — toca ou pausa a partir da posição do cursor (atalho **Espaço**).
 - **FIM ⏭** — leva o cursor ao **fim da música**, o fim da última nota ou pausa (atalho **End**). Dar PLAY no fim recomeça do início.
-- À esquerda: posição em **compasso.batida** e o tempo decorrido. À direita: notas e pausas do instrumento atual e a duração da música.
+- À esquerda: posição em **compasso.tempo** e o tempo decorrido. À direita: notas e pausas do instrumento atual e a duração da música.
 
 ---
 
 ## 4. Criando e ouvindo notas
 
-O grid tem duas ferramentas, escolhidas em **Edição** no cabeçalho: **✎ Desenhar** (padrão) e **⬚ Selecionar**.
+O grid tem duas ferramentas, escolhidas na barra de edição: **✎ Desenhar** (padrão) e **⬚ Selecionar**.
 
 | Ação | Ferramenta | Resultado |
 |---|---|---|
@@ -127,10 +141,11 @@ O grid tem duas ferramentas, escolhidas em **Edição** no cabeçalho: **✎ Des
 | **Clique** numa nota/pausa | Desenhar | Apaga |
 | **Arraste** um retângulo | Selecionar (ou **Shift+arrastar** em qualquer uma) | Seleciona as notas/pausas que ele toca (contorno amarelo) |
 | **Clique** numa nota/pausa | Selecionar | Seleciona só ela (**Shift+clique** adiciona/remove da seleção) |
+| **Arraste** uma nota selecionada | Selecionar | **Move** a seleção inteira: para cima/baixo muda a altura, para os lados muda o tempo (de célula em célula) |
 | **Clique** no vazio | Selecionar | Limpa a seleção |
 | **Botão direito** numa célula vazia | qualquer | Cria uma **pausa** (bloco branco) de 1 célula |
 | **Botão direito** numa nota/pausa | qualquer | Apaga |
-| **Clique na régua** (topo) | qualquer | Move o cursor para aquele ponto |
+| **Clique na régua** (topo) | qualquer | Move o cursor para aquele ponto (inclusive depois do fim da música, para colar ali) |
 
 Se um novo bloco se sobrepõe a outro **do mesmo instrumento e na mesma linha**, o novo substitui o antigo.
 Só os blocos do instrumento selecionado podem ser editados ou selecionados.
@@ -163,23 +178,36 @@ serve para marcar **até onde a música vai**:
 - O botão **FIM ⏭** e a tecla **End** levam o cursor até esse ponto, e a exportação usa o mesmo FIM em cada repetição.
 - Pausas não fazem som: a linha em que você as coloca é só onde elas aparecem.
 
-### 4.3 Ouvindo enquanto edita
+### 4.3 Mover, copiar, colar e apagar a seleção
+
+Com notas selecionadas:
+
+| Ação | Como |
+|---|---|
+| **Mover** | Arraste uma das notas selecionadas, ou use as **setas**: **↑ ↓** sobe/desce um semitom (**Shift+↑↓** = uma oitava); **← →** anda uma célula. Nada sai do grid. |
+| **Copiar / recortar** | **Ctrl+C** / **Ctrl+X** |
+| **Colar** | Posicione o cursor (clique na régua) e aperte **Ctrl+V**. O trecho é colado **no cursor**, no **instrumento atual** — dá para copiar uma melodia do piano e colar no lead. O cursor avança para o fim do trecho colado, então **Ctrl+V de novo cola logo em seguida** (ótimo para repetir um compasso). O que foi colado fica selecionado. |
+| **Selecionar tudo** | **Ctrl+A** (todas as notas do instrumento atual) |
+| **Apagar** | **🗑**, **Delete** ou **Backspace** |
+| **Separar** | **SEPARAR** ou **Shift+U**: corta cada nota selecionada nas divisas das células (o tamanho da célula atual). Para cortar em pedaços maiores, escolha uma célula maior antes. |
+
+### 4.4 Ouvindo enquanto edita
 
 - **Clique numa tecla** (coluna da esquerda) para ouvir aquela nota no instrumento selecionado.
 - Ao **criar uma nota** com a reprodução parada, ela toca uma vez (pré-escuta).
 - Durante o **PLAY**, as teclas acendem quando suas notas soam e a tela rola acompanhando o cursor.
 - O primeiro clique/PLAY libera o áudio (exigência dos navegadores). Se não ouvir nada, confira o volume do sistema.
 
-### 4.4 Os instrumentos
+### 4.5 Os instrumentos
 
 | Instrumento | Timbre | Duração da nota |
 |---|---|---|
 | **Piano Acústico** | Percussivo, decai naturalmente (mais rápido nos agudos) | Soltar antes encurta; notas longas deixam o som decair |
-| **Bateria** | Bumbo, caixa e hi-hats (ver 4.5) | Ignorada (som *one-shot*) |
+| **Bateria** | Bumbo, caixa e hi-hats (ver 4.6) | Ignorada (som *one-shot*) |
 | **Lofi Synth** | Abafado e quente, com leve vibrato | Sustenta enquanto durar a nota |
 | **Lead Synth** | Brilhante (dente-de-serra), para melodias | Sustenta enquanto durar a nota |
 
-### 4.5 Bateria
+### 4.6 Bateria
 
 Com **Bateria** selecionada, as teclas mostram a peça tocada em cada linha (o padrão se repete a cada 4 notas):
 
@@ -189,6 +217,31 @@ Com **Bateria** selecionada, as teclas mostram a peça tocada em cada linha (o p
 | C#, F, A  | Caixa |
 | D, F#, A# | Hi-Hat fechado |
 | D#, G, B  | Hi-Hat aberto |
+
+### 4.7 Copiando de uma partitura (BPM, compasso e figuras)
+
+O BPM do app conta **semínimas por minuto**, exatamente como a indicação "♩ = 90" da partitura. A 60 BPM, uma
+semínima dura 1 segundo. Para a música soar no andamento certo:
+
+1. Em **Compasso**, use a fórmula da partitura (3/4, 6/8…). Isso alinha as barras de compasso.
+2. Em **BPM (♩)**, digite o número do metrônomo da partitura.
+   - Em **6/8** ou **12/8** a partitura costuma indicar "♩. = N" (semínima pontuada). Nesse caso, use
+     **BPM = N × 1,5** (ex.: ♩. = 60 → BPM 90). Se indicar "♪ = N" (colcheia), use **N ÷ 2**.
+3. Em **Célula**, escolha a **menor figura** da música e desenhe cada nota com o número de células da sua figura:
+
+| Figura | Com Célula = 1/16 | Com Célula = 1/8 |
+|---|---|---|
+| Semibreve 𝅝 | 16 células | 8 células |
+| Mínima 𝅗𝅥 | 8 células | 4 células |
+| Semínima ♩ | 4 células | 2 células |
+| Colcheia ♪ | 2 células | 1 célula |
+| Semicolcheia 𝅘𝅥𝅯 | 1 célula | — |
+
+> **Atenção (mudança desta versão):** antes, a divisão "1/4" significava *4 células por batida* (semicolcheias),
+> então desenhar uma semínima da partitura em 1 célula deixava a música **4× mais rápida**. Agora cada opção tem o
+> nome da figura da partitura. Projetos antigos são convertidos automaticamente (a célula continua do mesmo tamanho).
+
+Para músicas longas, digitar no arquivo de projeto (seção 6) costuma ser mais rápido que desenhar.
 
 ---
 
@@ -213,17 +266,77 @@ O que entra no arquivo:
 
 Limites: o arquivo final pode ter até **10 minutos** (600 s). Se passar disso, o app avisa antes de exportar —
 reduza os loops ou os compassos, ou aumente o BPM. Uma sequência sem notas (só pausas ou vazia) não é exportada.
+O volume de cada instrumento no **mixer** vale também no MP3.
 
 ---
 
-## 6. Salvamento automático
+## 6. Salvamento automático e arquivo de projeto
 
-Tudo o que você faz (notas, instrumento, divisão, BPM, compassos, loop) é salvo automaticamente **neste navegador**.
-Ao reabrir a página, o projeto volta como estava e aparece a mensagem *"Projeto anterior restaurado"*.
+### 6.1 Salvamento automático
+Tudo o que você faz (notas, instrumento, compasso, célula, BPM, compassos, loop, mixer) é salvo automaticamente
+**neste navegador**. Ao reabrir a página, o projeto volta como estava (*"Projeto anterior restaurado"*).
 
 - O salvamento é por navegador/computador — não vai para o servidor.
 - Em janela anônima, o projeto é esquecido ao fechar a janela.
-- Para começar do zero: use **Limpar** em cada instrumento.
+- Para começar do zero: **Limpar tudo**.
+
+### 6.2 Exportar e importar o projeto (arquivo de texto)
+
+**Exportar projeto** baixa um arquivo `.txt` com **tudo**: o cabeçalho, o mixer e cada nota/pausa.
+**Importar** abre esse arquivo e deixa o app **exatamente** como estava (mesmas posições, durações,
+configurações e volumes). O arquivo é texto simples: dá para abrir no Bloco de Notas, guardar, mandar para
+alguém, ou **escrever uma música inteira à mão** e importar, sem desenhar nada no grid.
+
+```ini
+# Linhas que começam com # são comentários.
+
+[projeto]
+versao      = 1
+bpm         = 90       # semínimas (♩) por minuto
+compasso    = 3/4
+compassos   = 8
+divisao     = 1/8      # figura de cada célula do grid
+loop        = sim
+repeticoes  = 4        # repetições do MP3 quando loop = sim
+instrumento = piano    # instrumento selecionado ao abrir
+
+[volume]               # mixer, em % (100 = equilibrado)
+piano   = 100
+bateria = 80
+lofi    = 100
+lead    = 100
+
+[piano]
+# posição   nota  duração
+1.1         C4    1
+1.2         E4    1/2
+1.2+1/2     G4    1/2
+1.3         C5    1
+2.1         C4    3       pausa
+
+[bateria]
+1.1         bumbo   1/2
+1.2         caixa   1/2
+1.3         chimbal 1/4
+```
+
+Cada nota é uma linha **`posição  nota  duração  [pausa]`**, separadas por espaços:
+
+| Coluna | Formato | Exemplos |
+|---|---|---|
+| **posição** | `compasso.tempo`, com fração opcional do tempo depois de `+` | `1.1` (início) · `2.3` (3º tempo do 2º compasso) · `1.2+1/2` (meio do 2º tempo) |
+| **nota** | Nome científico, com `#` ou `b` | `C4` (dó central) · `F#3` · `Bb4`. Na bateria também `bumbo`, `caixa`, `chimbal`, `chimbal-aberto`. Faixa: C3 a B5. |
+| **duração** | Em **tempos** do compasso: inteiro, fração, misto ou decimal | `1` · `2` · `1/2` · `1+1/2` · `1.5` · `1/3` (tercina) |
+| **pausa** | Opcional, no fim | Torna a linha uma pausa (bloco branco). Forma curta: `2.1  pausa  3`. |
+
+- O **tempo** é a figura de baixo da fórmula de compasso: semínima em 2/4, 3/4, 4/4 e 5/4; **colcheia** em 6/8 e 12/8.
+  Em 4/4: `1` = semínima, `2` = mínima, `4` = semibreve, `1/2` = colcheia, `1/4` = semicolcheia.
+- A menor fração possível é 1/12 de semínima (o grid é exato até a sextina).
+- Seções e campos podem vir em qualquer ordem e com maiúsculas/acentos (`[Projeto]`, `Divisão`). Campos que
+  faltarem ficam com o valor padrão; instrumentos sem notas podem ser omitidos.
+- Se houver erro, **nada é importado** e o app mostra a linha e o motivo, por exemplo
+  *"linha 14: tempo 5 inválido (o compasso 4/4 tem 4 tempos)"*.
+- Importar **substitui** o projeto atual (o app pede confirmação).
 
 ---
 
@@ -237,8 +350,14 @@ Ao reabrir a página, o projeto volta como estava e aparece a mensagem *"Projeto
 | **D** | Ferramenta Desenhar |
 | **S** | Ferramenta Selecionar |
 | **U** | Unir a seleção |
+| **Shift+U** | Separar a seleção |
 | **Delete** / **Backspace** | Apagar a seleção |
 | **Esc** | Limpar a seleção |
+| **↑ / ↓** | Mover a seleção um semitom (**Shift**: uma oitava) |
+| **← / →** | Mover a seleção uma célula |
+| **Ctrl+C** / **Ctrl+X** | Copiar / recortar a seleção |
+| **Ctrl+V** | Colar no cursor (no instrumento atual) |
+| **Ctrl+A** | Selecionar todas as notas do instrumento atual |
 
 Os atalhos ficam desativados enquanto você digita num campo (BPM, Compassos, Loops).
 
@@ -262,3 +381,7 @@ Os atalhos ficam desativados enquanto você digita num campo (BPM, Compassos, Lo
 | "O áudio teria N s (máximo 600 s)" | Reduza loops ou compassos, ou aumente o BPM. |
 | Página em branco ou sem estilo | Verifique a conexão com a internet (o Tailwind é carregado via CDN) e se abriu por `http://`, não `file://`. |
 | BPM volta para outro valor | Valores fora da faixa 40–240 são corrigidos automaticamente ao sair do campo. |
+| A música copiada da partitura ficou rápida/lenta demais | Confira a **Célula** e o **BPM (♩)** — veja a seção 4.7. Em 6/8, a partitura costuma indicar ♩. (use BPM × 1,5). |
+| Um instrumento está alto/baixo demais | Ajuste o **mixer** na barra de edição (duplo clique volta a 100%). |
+| "Arquivo inválido — linha N: …" ao importar | Corrija a linha indicada no arquivo de texto (o formato está na seção 6.2) e importe de novo. Nada foi alterado no projeto. |
+| Ctrl+V colou no lugar errado | O trecho é colado **no cursor**: clique na régua onde quer colar antes de apertar Ctrl+V. |

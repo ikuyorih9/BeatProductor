@@ -45,9 +45,21 @@ html, body { height: 100%; }
 .btn-secondary:hover:not(:disabled) { background: #334155; }
 .btn-secondary:disabled { cursor: not-allowed; opacity: .4; }
 .btn-ready { border-color: #facc15; color: #fde68a; }
+.btn-sm { height: 30px; padding: 0 10px; font-size: 12px; }
+.btn-icon { padding: 0 8px; font-size: 14px; }
+.btn-danger-ready { border-color: #f43f5e; }
+.btn-danger-ready:hover:not(:disabled) { background: #881337; }
+.toolbar-divider { width: 1px; height: 20px; margin: 0 4px; background: #334155; }
+
+/* ---------- Mixer ---------- */
+.mixer-channel { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #cbd5e1; }
+.mixer-dot { width: 8px; height: 8px; border-radius: 9999px; flex: none; }
+.mixer-slider { width: 84px; height: 4px; cursor: pointer; }
+.mixer-value { width: 34px; text-align: right; font-variant-numeric: tabular-nums; color: #94a3b8; }
+.mixer-channel.is-muted .mixer-value { color: #f43f5e; }
 
 /* ---------- Seletor de ferramenta (segmented) ---------- */
-.segmented { display: flex; height: 36px; border: 1px solid #334155; border-radius: 6px; overflow: hidden; }
+.segmented { display: flex; height: 30px; border: 1px solid #334155; border-radius: 6px; overflow: hidden; }
 .segmented-btn {
   padding: 0 10px; font-size: 13px; font-weight: 600; background: #1e293b; color: #94a3b8;
   white-space: nowrap; transition: background-color .12s, color .12s;
@@ -107,6 +119,8 @@ html, body { height: 100%; }
 }
 .note-other.note-rest { background: #cbd5e1; }
 /* Item selecionado */
+.note-own.is-selected { cursor: grab; }
+.is-moving .note.is-selected { cursor: grabbing; opacity: .85; }
 .note.is-selected {
   outline: 2px solid #facc15; outline-offset: 1px; z-index: 3;
   box-shadow: 0 0 0 3px rgba(250, 204, 21, .25), inset 0 -2px 0 rgba(0, 0, 0, .25);

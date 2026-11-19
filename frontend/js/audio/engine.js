@@ -1,8 +1,10 @@
 /**
  * Motor de áudio: AudioContext, cadeia master e controle das vozes ativas.
  *
- * Cadeia: voz → kill-gain (para cortes suaves) → master → compressor (limitador) → saída.
+ * Cadeia: voz → kill-gain (cortes suaves) → canal do instrumento (calibração × volume do mixer)
+ *         → master → compressor (limitador) → saída.
  */
+import { INSTRUMENT_TRIM, VOLUME } from '../config.js';
 import { INSTRUMENT_FACTORIES } from './instruments.js';
 
 const MAX_VOICES = 96;
@@ -31,9 +33,29 @@ export class AudioEngine {
     this.limiter.release.value = 0.2;
     this.master.connect(this.limiter).connect(this.context.destination);
 
+    // Um canal por instrumento: o volume muda ao vivo, inclusive em notas já soando.
+    this.buses = {};
+    for (const instrument of Object.keys(INSTRUMENT_FACTORIES)) {
+      const bus = this.context.createGain();
+      bus.gain.value = (INSTRUMENT_TRIM[instrument] ?? 1) * (VOLUME.DEFAULT / 100);
+      bus.connect(this.master);
+      this.buses[instrument] = bus;
+    }
+
     this.noiseBuffer = createNoiseBuffer(this.context);
     this.voices = new Set();
     this.stats = { scheduled: 0, previews: 0 };
+  }
+
+  /** Volume do instrumento em % (0–150). Rampa curta para não estalar. */
+  setVolume(instrument, percent) {
+    const bus = this.buses[instrument];
+    if (!bus) return;
+    const target = (INSTRUMENT_TRIM[instrument] ?? 1) * (Math.max(0, percent) / 100);
+    const now = this.context.currentTime;
+    bus.gain.cancelScheduledValues(now);
+    bus.gain.setValueAtTime(bus.gain.value, now);
+    bus.gain.linearRampToValueAtTime(target, now + 0.03);
   }
 
   /** Relógio do áudio em segundos — base de tempo única do app. */
@@ -64,7 +86,7 @@ export class AudioEngine {
     const voice = factory(this.context, { midi, when: start, duration: Math.max(0.02, duration) }, { noiseBuffer: this.noiseBuffer });
 
     const kill = this.context.createGain();
-    voice.output.connect(kill).connect(this.master);
+    voice.output.connect(kill).connect(this.buses[instrument]);
     voice.kill = kill;
     voice.startTime = start;
 

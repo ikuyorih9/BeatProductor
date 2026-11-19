@@ -8,6 +8,14 @@ SAMPLE_RATE = 44_100
 #: Instrumentos aceitos (devem coincidir com frontend/js/config.js).
 INSTRUMENTS = ("piano", "drums", "lofi", "lead")
 
+#: Calibração de volume por instrumento (ganho linear), medida para que todos soem
+#: com intensidade parecida no volume 100%. O volume escolhido pelo usuário
+#: (campo `gain` de cada evento) é aplicado por cima disto.
+INSTRUMENT_TRIM = {"piano": 1.0, "drums": 1.25, "lofi": 1.0, "lead": 1.9}
+
+#: Faixa do ganho por evento (0 = mudo, 1 = 100%, 1.5 = 150%).
+MAX_GAIN = 1.5
+
 #: Formatos de saída suportados.
 FORMATS = ("mp3", "wav")
 

@@ -2,26 +2,33 @@
  * Geometria do piano roll (pura, sem DOM): tamanhos de célula, batida,
  * compasso e conversões coordenada ↔ célula/linha.
  */
-import { BEATS_PER_BAR, ROW_HEIGHT } from '../config.js';
-import { cellsPerBeat, cellWidthPx, clamp, lengthInTicks, ticksPerCell } from './timing.js';
+import { DEFAULT_METER, ROW_HEIGHT } from '../config.js';
+import { cellWidthPx, clamp, lengthInTicks, meterInfo, ticksPerCell } from './timing.js';
 
-export function computeLayout({ bpm, division, bars }) {
+/**
+ * @param {{bpm:number, division:string, bars:number, meter?:string}} settings
+ * beatWidth/barWidth seguem a fórmula de compasso (o "tempo" de 6/8 é a colcheia).
+ */
+export function computeLayout({ bpm, division, bars, meter = DEFAULT_METER }) {
   const cellWidth = cellWidthPx(bpm, division);
   const perCell = ticksPerCell(division);
-  const perBeat = cellsPerBeat(division);
-  const lengthTicks = lengthInTicks(bars);
+  const pxPerTick = cellWidth / perCell;
+  const { beats, beatTicks, barTicks } = meterInfo(meter);
+  const lengthTicks = lengthInTicks(bars, meter);
   const totalCells = lengthTicks / perCell;
-  const beatWidth = cellWidth * perBeat;
   return {
     bars,
+    meter,
+    beatsPerBar: beats,
+    beatTicks,
+    barTicks,
     cellWidth,
     ticksPerCell: perCell,
-    cellsPerBeat: perBeat,
-    pxPerTick: cellWidth / perCell,
+    pxPerTick,
     lengthTicks,
     totalCells,
-    beatWidth,
-    barWidth: beatWidth * BEATS_PER_BAR,
+    beatWidth: beatTicks * pxPerTick,
+    barWidth: barTicks * pxPerTick,
     width: totalCells * cellWidth,
   };
 }

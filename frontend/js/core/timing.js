@@ -2,7 +2,9 @@
  * Conversões de tempo: ticks ↔ segundos, divisões do grid e largura das células.
  * Módulo puro (sem DOM).
  */
-import { BEATS_PER_BAR, CELL_WIDTH, DIVISIONS, TICKS_PER_BEAT } from '../config.js';
+import {
+  CELL_WIDTH, DEFAULT_METER, DIVISIONS, METERS, TICKS_PER_BEAT, TICKS_PER_WHOLE,
+} from '../config.js';
 
 export function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -23,22 +25,34 @@ export function ticksToSeconds(ticks, bpm) {
   return ticks * secondsPerTick(bpm);
 }
 
+/** Células por semínima na divisão (ex.: '1/16' → 4). */
 export function cellsPerBeat(division) {
-  const cells = DIVISIONS[division];
-  if (!cells) throw new Error(`Divisão desconhecida: ${division}`);
-  return cells;
+  const entry = DIVISIONS[division];
+  if (!entry) throw new Error(`Divisão desconhecida: ${division}`);
+  return entry.cells;
 }
 
 export function ticksPerCell(division) {
   return TICKS_PER_BEAT / cellsPerBeat(division);
 }
 
-export function ticksPerBar() {
-  return TICKS_PER_BEAT * BEATS_PER_BAR;
+/**
+ * Fórmula de compasso → { beats, unit, beatTicks, barTicks }.
+ * beatTicks = duração de UM tempo (♩ = 12 em x/4, ♪ = 6 em x/8).
+ */
+export function meterInfo(meter = DEFAULT_METER) {
+  const entry = METERS[meter];
+  if (!entry) throw new Error(`Fórmula de compasso desconhecida: ${meter}`);
+  const beatTicks = TICKS_PER_WHOLE / entry.unit;
+  return { beats: entry.beats, unit: entry.unit, beatTicks, barTicks: beatTicks * entry.beats };
 }
 
-export function lengthInTicks(bars) {
-  return bars * ticksPerBar();
+export function ticksPerBar(meter = DEFAULT_METER) {
+  return meterInfo(meter).barTicks;
+}
+
+export function lengthInTicks(bars, meter = DEFAULT_METER) {
+  return bars * ticksPerBar(meter);
 }
 
 /**
@@ -50,10 +64,11 @@ export function cellWidthPx(bpm, division) {
   return Math.round(clamp(cellSeconds * CELL_WIDTH.PX_PER_SECOND, CELL_WIDTH.MIN, CELL_WIDTH.MAX));
 }
 
-/** Formata ticks como "compasso.batida" (base 1), ex.: 0 → "1.1". */
-export function formatBarBeat(tick) {
-  const beat = Math.floor(tick / TICKS_PER_BEAT);
-  return `${Math.floor(beat / BEATS_PER_BAR) + 1}.${(beat % BEATS_PER_BAR) + 1}`;
+/** Formata ticks como "compasso.tempo" (base 1) na fórmula de compasso, ex.: 0 → "1.1". */
+export function formatBarBeat(tick, meter = DEFAULT_METER) {
+  const { beats, beatTicks } = meterInfo(meter);
+  const beat = Math.floor(tick / beatTicks);
+  return `${Math.floor(beat / beats) + 1}.${(beat % beats) + 1}`;
 }
 
 /** Formata segundos como "m:ss.d". */

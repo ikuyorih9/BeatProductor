@@ -40,7 +40,7 @@ def health() -> dict:
 )
 def export_audio(request: ExportRequest) -> Response:
     """Renderiza a sequência recebida e devolve o arquivo de áudio para download."""
-    events = [Event(e.time, e.note, e.duration, e.instrument) for e in request.events]
+    events = [Event(e.time, e.note, e.duration, e.instrument, e.gain) for e in request.events]
     samples = render_sequence(events, request.length, request.repetitions)
     data = encode(samples, request.format)
 

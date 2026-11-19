@@ -250,6 +250,90 @@ em cada fase do roadmap (ver [especificação](especificacao/especificacao-mvp.m
 
 ---
 
+## 2026-11-19 — Lixeira, copiar/colar, mover, Limpar tudo, BPM × partitura, arquivo de projeto, mixer, SEPARAR
+
+**Pedido (7 itens)**
+1. Lixeira ao lado de Limpar, ativa só com seleção.
+2. Ctrl+C/Ctrl+V e arrastar a seleção para cima/baixo.
+3. "Limpar tudo".
+4. Verificar o BPM: músicas copiadas de partituras soavam erradas (4/4? 3/4?).
+5. Exportar/importar um arquivo de projeto legível, com cabeçalho e notas, restaurando **exatamente** a configuração.
+6. Volume por instrumento.
+7. Botão SEPARAR para notas unidas.
+
+**Diagnóstico do BPM (item 4)**
+- A conta estava certa: 1 batida = 1 semínima = 12 ticks, e 120 BPM → 0,5 s, coberto por teste.
+- O problema era o **nome da divisão**:
+  - "1/4" significava *4 células por batida*, ou seja, cada célula era uma **semicolcheia**;
+  - na partitura, "1/4" é a **semínima**;
+  - quem desenhava uma semínima em 1 célula ouvia a música **4× mais rápida**.
+- Além disso, o compasso era fixo em 4/4. Isso não muda o andamento, mas desalinhava as barras de 3/4 e 6/8.
+- Correções:
+  - **Célula** passou a ter o nome da figura: `1/4` semínima, `1/8` colcheia, `1/8T`, `1/16` semicolcheia (padrão, a mesma célula de antes), `1/16T`. Foi incluída a semínima, que não existia.
+  - Novo campo **Compasso**: 2/4, 3/4, 4/4, 5/4, 6/8, 12/8. Todos têm um número inteiro de semínimas, então qualquer célula encaixa.
+  - O rótulo virou **BPM (♩)**, porque o BPM conta semínimas, como no metrônomo da partitura. O manual explica 6/8 com ♩. (×1,5).
+  - Projetos salvos na v1 migram a divisão para o nome novo, mantendo a mesma célula (`PROJECT_VERSION = 2`).
+
+**Volume (item 6) — medição antes de mexer**
+- O RMS de cada instrumento foi medido nos dois motores:
+  - navegador: piano −11,5, lofi −13,3, **lead −19,7**, bumbo −14,3 dB;
+  - Python: piano −14,6, lofi −14,4, **lead −19,9**, bumbo −17,4 dB.
+- O lead estava cerca de 6 dB abaixo dos outros. Cada motor recebeu sua **calibração**, para 100% soar equilibrado:
+  - `INSTRUMENT_TRIM` no JS: lead ×2,1, piano ×0,85;
+  - no Python: lead ×1,9, bateria ×1,25.
+- Os motores são diferentes, então cada um tem os próprios valores.
+- Mixer na barra de edição: 0–150%, duplo clique volta a 100%.
+- No navegador, cada instrumento tem um **canal** (GainNode), e o volume muda ao vivo, com rampa de 30 ms.
+- No MP3, cada evento leva `gain` (campo novo e opcional da API; o padrão 1 mantém a compatibilidade).
+
+**Arquivo de projeto (item 5)**
+- Formato de texto no estilo INI, pensado para ser lido e escrito à mão:
+  - seções `[projeto]`, `[volume]` e uma por instrumento;
+  - uma nota por linha: `posição  nota  duração  [pausa]`.
+- A posição é `compasso.tempo+fração` e a duração é em tempos (`1`, `1/2`, `1+1/2`, `1.5`), com **frações exatas**. Um teste faz a ida e volta em todos os compassos × células, tick a tick.
+- Aceita bemóis (`Bb4`), minúsculas, acentos e nomes de peças da bateria (`bumbo`, `caixa`…).
+- Com erro, nada é importado e o app mostra a linha e o motivo. Sobreposições e notas depois do fim do grid geram aviso.
+- **Bug pego pela ida e volta:** o `#` de comentário cortava sustenidos (`C#3`). Agora um comentário só começa no início da linha ou depois de um espaço.
+
+**Edição (itens 1, 2, 3, 7)**
+- O cabeçalho virou duas faixas:
+  - em cima, a música: instrumento, compasso, BPM, compassos, célula, loop, importar/exportar;
+  - embaixo, a barra de edição: ferramenta, UNIR, SEPARAR, 🗑, Limpar, Limpar tudo e o mixer.
+- **Mover:**
+  - arrastar uma nota selecionada move o grupo (vertical = altura, horizontal = células);
+  - durante o arraste há uma prévia com `transform`;
+  - o deslocamento é limitado às bordas (`clampMove`);
+  - as setas também movem (Shift+↑↓ = oitava);
+  - `Sequence.moveItems` preserva os ids, então a seleção continua valendo.
+- **Copiar/colar:**
+  - a área de transferência é interna e guarda posições relativas ao tempo onde a seleção começa;
+  - colar vai no **cursor** e no **instrumento atual**;
+  - o cursor avança pelo tamanho do trecho (arredondado a tempos), então Ctrl+V repetido encadeia;
+  - também há Ctrl+X e Ctrl+A.
+- **SEPARAR:** `splitItems` corta nas divisas das células do grid. É o inverso de UNIR e vale para pausas.
+
+**Defeito encontrado e corrigido no caminho**
+- Na entrega anterior, o transporte passou a ter o tamanho do **fim da música**, e o `seek` ficava limitado a ele.
+- Consequência: o cursor não podia ser posicionado depois da última nota, o que impedia colar ali.
+- Correção: o transporte agora tem dois limites:
+  - `lengthTicks` (fim da música: onde o play para ou recomeça);
+  - `gridTicks` (até onde o cursor vai parado).
+- Dar play além do fim recomeça do início.
+
+**Verificação**
+- pytest: ganho por evento (escala, mudo, tudo mudo sem erro), calibração (melódicos a menos de 3 dB entre si) e validação de `gain`.
+- node:test (+22):
+  - figuras e compassos, migração v1, projeto sem a ferramenta;
+  - SEPARAR, mover, colar encadeado, gain na exportação;
+  - arquivo de projeto: frações, posições em todos os compassos, notas, ida e volta exata, arquivo escrito à mão, erros com linha, avisos;
+  - transporte com dois limites.
+- E2E 39/39 (+10), com cliques, arrastes e teclas reais:
+  - lixeira, arrastar para baixo/cima/lado, setas, Ctrl+C/Ctrl+V encadeado e entre instrumentos, SEPARAR, compasso 3/4, mixer (ganho real do canal);
+  - **exportar projeto → Limpar tudo → importar** devolve projeto e configurações idênticos.
+- O helper `cellPoint` do E2E rolava a tela a cada chamada. Com o cabeçalho mais alto, o início e o fim de um arraste caíam na mesma altura. Agora ele só rola quando a linha está fora da vista.
+
+---
+
 ## Resumo final
 
 | Requisito | Onde |
@@ -265,4 +349,4 @@ em cada fase do roadmap (ver [especificação](especificacao/especificacao-mvp.m
 | RNF02 Sem build/dependências pesadas | Vanilla JS em ES Modules + Tailwind via CDN, zero pacotes npm |
 | RNF03 MP3 limpo, sem cortes no loop | overlap-add, normalização −1 dBFS, fades de borda |
 
-**Totais:** 88 testes pytest · 62 testes `node:test` · 29 verificações E2E em navegador real.
+**Totais:** 94 testes pytest · 87 testes `node:test` · 39 verificações E2E em navegador real.

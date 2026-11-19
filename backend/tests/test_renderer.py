@@ -80,3 +80,33 @@ def test_render_pass_reuses_identical_notes():
 def test_invalid_arguments(length, reps):
     with pytest.raises(ValueError):
         render_sequence([], length, reps)
+
+
+def _rms(signal):
+    return float(np.sqrt(np.mean(np.square(signal, dtype=np.float64))))
+
+
+def test_gain_scales_the_instrument_relative_to_the_others():
+    loud = render_pass([Event(0.0, "C4", 0.5, "piano", 1.0)], 1.0)
+    quiet = render_pass([Event(0.0, "C4", 0.5, "piano", 0.5)], 1.0)
+    assert _rms(quiet) == pytest.approx(_rms(loud) * 0.5, rel=1e-5)
+
+
+def test_gain_zero_mutes_the_instrument():
+    out = render_pass([Event(0.0, "C4", 0.5, "piano", 0.0), Event(0.0, "C4", 0.5, "lead", 1.0)], 1.0)
+    only_lead = render_pass([Event(0.0, "C4", 0.5, "lead", 1.0)], 1.0)
+    np.testing.assert_array_equal(out, only_lead)
+
+
+def test_muted_sequence_is_silence_without_errors():
+    out = render_sequence([Event(0.0, "C4", 0.5, "piano", 0.0)], 1.0, 1)
+    assert not np.any(out)
+
+
+def test_instruments_are_calibrated_to_similar_loudness():
+    """No volume 100%, nenhum instrumento melódico fica mais de 3 dB longe dos outros."""
+    levels = {}
+    for instrument in ("piano", "lofi", "lead"):
+        out = render_pass([Event(0.0, "C4", 0.5, instrument)], 0.5)[: SR // 2]
+        levels[instrument] = 20 * np.log10(_rms(out))
+    assert max(levels.values()) - min(levels.values()) < 3.0, levels

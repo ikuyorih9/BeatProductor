@@ -50,9 +50,9 @@ Roda, em sequência: pytest (backend), `node:test` + verificação de sintaxe (f
 
 | Suíte | Quantidade |
 |---|---|
-| Backend (pytest) | 88 testes |
-| Frontend (`node:test`) | 62 testes |
-| E2E (Chrome/Edge headless) | 29 verificações |
+| Backend (pytest) | 94 testes |
+| Frontend (`node:test`) | 87 testes |
+| E2E (Chrome/Edge headless) | 39 verificações |
 
 ## Estrutura de diretórios
 
@@ -73,7 +73,8 @@ BeatProductor/
 │   │   │   ├── schedule.js   #   notas numa janela de tempo (agendamento)
 │   │   │   ├── export.js     #   pedido de exportação + pré-validação
 │   │   │   ├── project.js    #   projeto salvo (serialização/saneamento)
-│   │   │   ├── selection.js  #   seleção por retângulo e o que UNIR juntaria
+│   │   │   ├── project-file.js#   arquivo de projeto em texto (exportar/importar)
+│   │   │   ├── selection.js  #   seleção, mover, copiar/colar, UNIR/SEPARAR
 │   │   │   └── transport.js  #   relógio musical (play/pause/seek/loop)
 │   │   ├── audio/            # Web Audio API
 │   │   │   ├── engine.js     #   AudioContext, master, vozes

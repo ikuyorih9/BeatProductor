@@ -9,11 +9,12 @@ Exemplo de corpo do POST /api/export:
       "loops": 4,
       "format": "mp3",
       "events": [
-        {"time": 0.0, "note": "C4", "duration": 0.5, "instrument": "piano"}
+        {"time": 0.0, "note": "C4", "duration": 0.5, "instrument": "piano", "gain": 1.0}
       ]
     }
 
 Tempos em segundos. `length` é a duração de UMA passada do padrão.
+`gain` (opcional, padrão 1.0) é o volume do instrumento escolhido no mixer.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .core.config import (
-    MAX_EVENTS, MAX_LOOPS, MAX_NOTE_SECONDS, MAX_PATTERN_SECONDS, MAX_TOTAL_SECONDS,
+    MAX_EVENTS, MAX_GAIN, MAX_LOOPS, MAX_NOTE_SECONDS, MAX_PATTERN_SECONDS, MAX_TOTAL_SECONDS,
 )
 from .core.music import NOTE_PATTERN, note_to_midi
 
@@ -40,6 +41,7 @@ class NoteEvent(BaseModel):
     note: str = Field(pattern=NOTE_PATTERN, description='Nome científico, ex.: "C4", "F#3"')
     duration: float = Field(gt=0, le=MAX_NOTE_SECONDS, description="Duração (s)")
     instrument: Instrument
+    gain: float = Field(default=1.0, ge=0, le=MAX_GAIN, description="Volume (0 = mudo, 1 = 100%)")
 
     @field_validator("note")
     @classmethod

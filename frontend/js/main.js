@@ -1,14 +1,17 @@
 /**
  * Ponto de entrada do frontend: cria o estado, os componentes e liga tudo.
  */
-import { INSTRUMENTS, LOWEST_MIDI, OCTAVES } from './config.js';
+import { HIGHEST_MIDI, INSTRUMENT_IDS, INSTRUMENTS, LOWEST_MIDI, OCTAVES } from './config.js';
 import { AudioEngine } from './audio/engine.js';
 import { AudioScheduler } from './audio/scheduler.js';
 import { buildExportPayload } from './core/export.js';
 import { computeLayout } from './core/layout.js';
 import { buildRange } from './core/music.js';
 import { defaultSettings } from './core/project.js';
-import { countMergeableGroups } from './core/selection.js';
+import { parseProjectFile, serializeProjectFile } from './core/project-file.js';
+import {
+  clampMove, copyItems, countMergeableGroups, countSplittable, pasteItems,
+} from './core/selection.js';
 import { Sequence } from './core/sequence.js';
 import { createStore } from './core/store.js';
 import { formatClock, lengthInTicks, ticksToSeconds } from './core/timing.js';
@@ -24,13 +27,16 @@ import { showToast } from './ui/toast.js';
 import { initTransportControls } from './ui/transport-controls.js';
 
 const INSTRUMENT_LABEL = Object.fromEntries(INSTRUMENTS.map((i) => [i.id, i.label]));
+const MIDI_BOUNDS = { minMidi: LOWEST_MIDI, maxMidi: HIGHEST_MIDI };
 
 // ---------------------------------------------------------------- estado (restaurado do último uso, se houver)
 const saved = loadProject();
 // `tool` (desenhar/selecionar) não é salva: o app sempre abre desenhando.
 const store = createStore({ ...(saved ? saved.settings : defaultSettings()), tool: 'draw' });
 const range = buildRange(LOWEST_MIDI, OCTAVES);
-const sequence = new Sequence(lengthInTicks(store.get().bars));
+const rowIndex = new Map(range.map((midi, index) => [midi, index]));
+const gridLength = () => lengthInTicks(store.get().bars, store.get().meter);
+const sequence = new Sequence(gridLength());
 if (saved) sequence.loadJSON(saved.notes);
 
 // Motor de áudio. Se a Web Audio API não estiver disponível, o app segue
@@ -48,17 +54,26 @@ const transport = new Transport({
   now: clock,
   bpm: store.get().bpm,
   lengthTicks: sequence.endTick(), // o play vai até o fim da última nota/pausa
+  gridTicks: gridLength(), // parado, o cursor pode ir até o fim do grid
   loop: store.get().loop,
 });
 
 let layout = computeLayout(store.get());
 const autosave = createAutosave(() => saveProject(store.get(), sequence));
 
+/** Área de transferência interna (Ctrl+C / Ctrl+V). */
+let clipboard = null;
+
 // ---------------------------------------------------------------- componentes
 const header = initHeader(store, {
   onExport: () => exportSequence(),
-  onClear: () => clearCurrentInstrument(),
+  onExportProject: () => exportProjectFile(),
+  onImportProject: (file) => importProjectFile(file),
   onMerge: () => mergeSelection(),
+  onSplit: () => splitSelection(),
+  onDelete: () => deleteSelection(),
+  onClear: () => clearCurrentInstrument(),
+  onClearAll: () => clearAll(),
 });
 
 const keys = new PianoKeys(byId('piano-keys'), range, {
@@ -93,7 +108,8 @@ const grid = new PianoRollGrid({
     if (sequence.removeNote(id)) onSequenceChanged();
   },
   onSeek: (tick) => seek(tick),
-  onSelectionChange: () => updateMergeState(),
+  onSelectionChange: () => updateSelectionState(),
+  onMove: (ids, dMidi, dTicks) => applyMove(ids, dMidi, dTicks),
 });
 
 const keysWidth = byId('piano-keys').getBoundingClientRect().width || 88;
@@ -144,7 +160,7 @@ const controls = initTransportControls({
   onEnd: () => seek(sequence.endTick()),
 });
 
-// ---------------------------------------------------------------- ações
+// ---------------------------------------------------------------- reprodução
 let toggling = false;
 async function togglePlayback() {
   if (toggling) return; // evita duplo disparo enquanto o áudio é liberado
@@ -175,6 +191,12 @@ function seek(tick) {
   playhead.reveal(transport.tick, layout.pxPerTick);
 }
 
+function applyVolumes(volumes) {
+  if (!engine) return;
+  for (const id of INSTRUMENT_IDS) engine.setVolume(id, volumes[id]);
+}
+
+// ---------------------------------------------------------------- estado derivado
 function updateStatus() {
   const { instrument, bpm } = store.get();
   const own = sequence.activeItems().filter((n) => n.instrument === instrument);
@@ -193,15 +215,25 @@ function onSequenceChanged() {
   syncLength();
   grid.renderNotes();
   updateStatus();
-  updateMergeState();
+  updateSelectionState();
   autosave();
 }
 
-function updateMergeState() {
+function updateSelectionState() {
   const selected = grid.getSelection();
-  header.setMergeState(selected.length, countMergeableGroups(sequence.notes, selected));
+  header.setSelectionState({
+    selected: selected.length,
+    mergeable: countMergeableGroups(sequence.notes, selected),
+    splittable: countSplittable(sequence.notes, selected, layout.ticksPerCell),
+  });
 }
 
+function selectedItems() {
+  const ids = new Set(grid.getSelection());
+  return sequence.activeItems().filter((item) => ids.has(item.id));
+}
+
+// ---------------------------------------------------------------- edição da seleção
 function mergeSelection() {
   const selected = grid.getSelection();
   if (selected.length < 2) {
@@ -218,12 +250,89 @@ function mergeSelection() {
   showToast(merged === 1 ? 'Blocos unidos.' : `${merged} linhas unidas.`, 'success');
 }
 
+function splitSelection() {
+  const selected = grid.getSelection();
+  if (selected.length === 0) {
+    showToast('Selecione as notas que quer separar (ferramenta Selecionar ou Shift+arrastar).');
+    return;
+  }
+  const { split, ids } = sequence.splitItems(selected, layout.ticksPerCell);
+  if (split === 0) {
+    showToast('As notas selecionadas já têm 1 célula. Escolha uma célula menor para separar mais.');
+    return;
+  }
+  onSequenceChanged();
+  grid.setSelection(ids);
+  showToast(split === 1 ? 'Nota separada em células.' : `${split} notas separadas em células.`, 'success');
+}
+
 function deleteSelection() {
   const selected = grid.getSelection();
   if (selected.length === 0) return;
   sequence.removeNotes(selected);
   grid.clearSelection();
   onSequenceChanged();
+}
+
+/** Move a seleção (ids preservados). dMidi em semitons, dTicks em ticks. */
+function applyMove(ids, dMidi, dTicks) {
+  if (sequence.moveItems(ids, dMidi, dTicks, MIDI_BOUNDS) === 0) return;
+  onSequenceChanged();
+  // Ao mudar a altura, deixa ouvir a nova nota mais aguda da seleção.
+  if (dMidi !== 0 && !transport.playing) {
+    const top = selectedItems().filter((n) => n.kind === 'note').sort((a, b) => b.midi - a.midi)[0];
+    if (top) previewNote(top.midi);
+  }
+}
+
+/** Setas do teclado: move a seleção respeitando os limites do grid. */
+function nudgeSelection(dMidi, dTicks) {
+  const items = selectedItems();
+  if (items.length === 0) return;
+  const limited = clampMove(items, -dMidi, dTicks, { rowIndex, rowCount: range.length, lengthTicks: layout.lengthTicks });
+  if (limited.dRows === 0 && limited.dTicks === 0) return;
+  applyMove(items.map((n) => n.id), -limited.dRows, limited.dTicks);
+}
+
+function copySelection({ cut = false } = {}) {
+  const selected = grid.getSelection();
+  const copied = copyItems(sequence.activeItems(), selected, layout.beatTicks);
+  if (!copied) {
+    showToast('Selecione notas para copiar (ferramenta Selecionar ou Shift+arrastar).');
+    return;
+  }
+  clipboard = copied;
+  if (cut) {
+    sequence.removeNotes(selected);
+    grid.clearSelection();
+    onSequenceChanged();
+  }
+  showToast(`${copied.items.length} bloco(s) ${cut ? 'recortado(s)' : 'copiado(s)'}. Posicione o cursor e use Ctrl+V.`);
+}
+
+function pasteClipboard() {
+  if (!clipboard) {
+    showToast('Nada copiado ainda: selecione notas e use Ctrl+C.');
+    return;
+  }
+  const { instrument } = store.get();
+  // Cola no cursor, alinhado à célula do grid.
+  const start = Math.floor(transport.tick / layout.ticksPerCell) * layout.ticksPerCell;
+  const pasted = sequence.insertItems(pasteItems(clipboard, { instrument, start }));
+  onSequenceChanged();
+  grid.setSelection(pasted.map((n) => n.id));
+  const outside = pasted.filter((n) => n.start >= layout.lengthTicks).length;
+  if (outside > 0) {
+    showToast(`${outside} bloco(s) ficaram depois do fim do grid — aumente os compassos para vê-los.`, 'error');
+  }
+  // O cursor vai para o fim do trecho colado: Ctrl+V de novo cola logo em seguida.
+  if (!transport.playing) seek(Math.min(start + clipboard.span, layout.lengthTicks));
+}
+
+function selectAll() {
+  const { instrument } = store.get();
+  if (store.get().tool !== 'select') store.set({ tool: 'select' });
+  grid.setSelection(sequence.activeItems().filter((n) => n.instrument === instrument).map((n) => n.id));
 }
 
 function clearCurrentInstrument() {
@@ -237,6 +346,63 @@ function clearCurrentInstrument() {
   sequence.clear(instrument);
   onSequenceChanged();
   showToast('Notas apagadas.');
+}
+
+function clearAll() {
+  const count = sequence.notes.length;
+  if (count === 0) {
+    showToast('O projeto já está vazio.');
+    return;
+  }
+  if (!window.confirm(`Apagar TODAS as ${count} nota(s)/pausa(s) de todos os instrumentos?`)) return;
+  sequence.clear();
+  grid.clearSelection();
+  onSequenceChanged();
+  seek(0);
+  showToast('Projeto limpo.');
+}
+
+// ---------------------------------------------------------------- arquivos
+function timestamp() {
+  const d = new Date();
+  const two = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
+}
+
+function exportProjectFile() {
+  const text = serializeProjectFile(store.get(), sequence.toJSON());
+  const filename = `beat-productor-${timestamp()}.txt`;
+  downloadBlob(new Blob([text], { type: 'text/plain;charset=utf-8' }), filename);
+  showToast(`Projeto exportado: ${filename}`, 'success');
+}
+
+async function importProjectFile(file) {
+  let text;
+  try {
+    text = await file.text();
+  } catch {
+    showToast('Não foi possível ler o arquivo.', 'error');
+    return;
+  }
+  const result = parseProjectFile(text);
+  if (!result.ok) {
+    showToast(`Arquivo inválido — ${result.errors.slice(0, 3).join(' · ')}`, 'error');
+    console.warn('Erros ao importar o projeto:', result.errors);
+    return;
+  }
+  if (sequence.notes.length > 0 && !window.confirm('Importar substitui o projeto atual. Continuar?')) return;
+
+  if (transport.playing) transport.pause();
+  grid.clearSelection();
+  store.set({ ...result.settings, tool: store.get().tool });
+  sequence.setLength(gridLength());
+  transport.setGridLength(gridLength());
+  sequence.loadJSON(result.items);
+  onSequenceChanged();
+  seek(0);
+  const notes = result.items.length;
+  showToast(`Projeto importado: ${notes} nota(s)/pausa(s).${result.warnings.length ? ` Atenção: ${result.warnings.join('; ')}.` : ''}`,
+    result.warnings.length ? 'error' : 'success');
 }
 
 let exporting = false;
@@ -265,25 +431,28 @@ async function exportSequence() {
 function relayout() {
   layout = computeLayout(store.get());
   grid.applyLayout(layout);
+  updateSelectionState(); // SEPARAR depende do tamanho da célula
 }
 
 // ---------------------------------------------------------------- reações ao estado
 store.subscribe((state, _previous, changed) => {
   const has = (key) => changed.includes(key);
   if (has('bpm')) transport.setBpm(state.bpm);
-  if (has('bars')) {
-    sequence.setLength(lengthInTicks(state.bars));
+  if (has('bars') || has('meter')) {
+    sequence.setLength(gridLength());
+    transport.setGridLength(gridLength());
     syncLength();
   }
   if (has('loop')) transport.setLoop(state.loop);
-  if (has('bpm') || has('division') || has('bars')) relayout();
+  if (has('volumes')) applyVolumes(state.volumes);
+  if (has('bpm') || has('division') || has('bars') || has('meter')) relayout();
   if (has('instrument')) {
     keys.render(state.instrument);
     grid.clearSelection(); // a seleção vale só para o instrumento atual
     grid.renderNotes();
   }
-  if (has('instrument') || has('bars') || has('bpm')) updateStatus();
-  autosave();
+  if (has('instrument') || has('bars') || has('bpm') || has('meter')) updateStatus();
+  if (!(changed.length === 1 && has('tool'))) autosave();
 });
 
 transport.on((type) => {
@@ -310,28 +479,72 @@ function isEditable(target) {
   return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName));
 }
 
+const CTRL_SHORTCUTS = {
+  KeyC: () => copySelection(),
+  KeyX: () => copySelection({ cut: true }),
+  KeyV: () => pasteClipboard(),
+  KeyA: () => selectAll(),
+};
+
 window.addEventListener('keydown', (event) => {
-  if (isEditable(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
-  if (event.code === 'Space') {
-    event.preventDefault(); // evita também "clicar" o botão focado
-    if (!event.repeat) togglePlayback();
-  } else if (event.code === 'Home') {
-    event.preventDefault();
-    seek(0);
-  } else if (event.code === 'End') {
-    event.preventDefault();
-    seek(sequence.endTick());
-  } else if (event.code === 'Delete' || event.code === 'Backspace') {
-    event.preventDefault();
-    deleteSelection();
-  } else if (event.code === 'Escape') {
-    grid.clearSelection();
-  } else if (event.code === 'KeyU') {
-    mergeSelection();
-  } else if (event.code === 'KeyS') {
-    store.set({ tool: 'select' });
-  } else if (event.code === 'KeyD') {
-    store.set({ tool: 'draw' });
+  if (isEditable(event.target)) return;
+  if (event.ctrlKey || event.metaKey) {
+    const action = !event.altKey && !event.shiftKey ? CTRL_SHORTCUTS[event.code] : null;
+    if (action) {
+      event.preventDefault();
+      action();
+    }
+    return;
+  }
+  if (event.altKey) return;
+
+  const cell = layout.ticksPerCell;
+  switch (event.code) {
+    case 'Space':
+      event.preventDefault(); // evita também "clicar" o botão focado
+      if (!event.repeat) togglePlayback();
+      break;
+    case 'Home':
+      event.preventDefault();
+      seek(0);
+      break;
+    case 'End':
+      event.preventDefault();
+      seek(sequence.endTick());
+      break;
+    case 'Delete':
+    case 'Backspace':
+      event.preventDefault();
+      deleteSelection();
+      break;
+    case 'Escape':
+      grid.clearSelection();
+      break;
+    case 'KeyU':
+      if (event.shiftKey) splitSelection();
+      else mergeSelection();
+      break;
+    case 'KeyS':
+      store.set({ tool: 'select' });
+      break;
+    case 'KeyD':
+      store.set({ tool: 'draw' });
+      break;
+    case 'ArrowUp':
+    case 'ArrowDown':
+    case 'ArrowLeft':
+    case 'ArrowRight': {
+      if (grid.getSelection().length === 0) return; // sem seleção, as setas rolam a tela
+      event.preventDefault();
+      const octave = event.shiftKey ? 12 : 1;
+      if (event.code === 'ArrowUp') nudgeSelection(octave, 0);
+      else if (event.code === 'ArrowDown') nudgeSelection(-octave, 0);
+      else if (event.code === 'ArrowLeft') nudgeSelection(0, -cell);
+      else nudgeSelection(0, cell);
+      break;
+    }
+    default:
+      break;
   }
 });
 window.addEventListener('keyup', (event) => {
@@ -344,7 +557,7 @@ function frame() {
   // Cursor alinhado com o que está SAINDO no alto-falante (compensa a latência de saída).
   const tick = transport.playing && engine ? transport.tickAt(engine.now() - engine.outputLatency) : transport.tick;
   playhead.update(tick, layout.pxPerTick, transport.playing);
-  controls.setPosition(tick, store.get().bpm);
+  controls.setPosition(tick, store.get().bpm, store.get().meter);
   window.requestAnimationFrame(frame);
 }
 
@@ -355,9 +568,9 @@ window.__beatProductor = {
 };
 
 keys.render(store.get().instrument);
+applyVolumes(store.get().volumes);
 relayout();
 updateStatus();
-updateMergeState();
 controls.setPlaying(false);
 window.requestAnimationFrame(frame);
 if (audioError) showToast(`Áudio indisponível: ${audioError.message}`, 'error');

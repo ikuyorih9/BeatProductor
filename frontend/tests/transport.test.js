@@ -79,11 +79,39 @@ test('seek limita à faixa e FIM fica exatamente no fim', () => {
   assert.equal(transport.tick, 0);
 });
 
-test('reduzir o tamanho puxa o cursor para dentro', () => {
-  const { transport } = make();
+test('reduzir o GRID puxa o cursor para dentro', () => {
+  const { transport } = make({ lengthTicks: 24, gridTicks: 192 });
   transport.seek(150);
-  transport.setLength(96);
+  transport.setGridLength(96);
   assert.equal(transport.tick, 96);
+});
+
+test('parado, o cursor pode ficar depois do FIM da música (até o fim do grid)', () => {
+  const { clock, transport } = make({ lengthTicks: 24, gridTicks: 192 });
+  transport.seek(150);
+  assert.equal(transport.tick, 150, 'para colar depois da última nota');
+  transport.seek(999);
+  assert.equal(transport.tick, 192, 'limitado ao fim do grid');
+  transport.setLength(30); // a música mudou: o cursor parado não é puxado
+  assert.equal(transport.tick, 192);
+  // Play além do fim da música recomeça do início e para no fim da música.
+  transport.play();
+  assert.equal(transport.tick, 0);
+  clock.advance(1); // 24 ticks
+  transport.update();
+  assert.equal(transport.playing, true);
+  clock.advance(0.5);
+  transport.update();
+  assert.equal(transport.playing, false);
+  assert.equal(transport.tick, 30);
+});
+
+test('tocando, encurtar a música puxa o cursor para o novo fim', () => {
+  const { clock, transport } = make({ lengthTicks: 192, gridTicks: 192 });
+  transport.play();
+  clock.advance(2); // 48 ticks
+  transport.setLength(24);
+  assert.ok(transport.tick <= 24);
 });
 
 test('desligar o loop no meio da volta mantém a posição relativa', () => {

@@ -70,9 +70,10 @@ async function rightClick(x, y) {
   await page('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'right', buttons: 0, clickCount: 1 });
 }
 
-async function pressKey(code, key, keyCode) {
-  await page('Input.dispatchKeyEvent', { type: 'keyDown', code, key, windowsVirtualKeyCode: keyCode });
-  await page('Input.dispatchKeyEvent', { type: 'keyUp', code, key, windowsVirtualKeyCode: keyCode });
+/** modifiers: 2 = Ctrl, 8 = Shift. */
+async function pressKey(code, key, keyCode, modifiers = 0) {
+  await page('Input.dispatchKeyEvent', { type: 'keyDown', code, key, windowsVirtualKeyCode: keyCode, modifiers });
+  await page('Input.dispatchKeyEvent', { type: 'keyUp', code, key, windowsVirtualKeyCode: keyCode, modifiers });
 }
 
 async function click(x, y) {
@@ -108,7 +109,13 @@ async function cellPoint(row, cell) {
     const app = window.__beatProductor;
     const scroller = document.getElementById('roll-scroll');
     scroller.scrollLeft = 0;
-    scroller.scrollTop = Math.max(0, 22 * ${row} - 160);
+    // Só rola se a linha estiver fora da área visível: pontos pedidos em seguida
+    // (início e fim de um arraste) ficam na mesma rolagem.
+    const top = 22 * ${row};
+    const visible = scroller.clientHeight - 24 - 30; // régua e folga
+    if (top < scroller.scrollTop + 4 || top + 22 > scroller.scrollTop + visible) {
+      scroller.scrollTop = Math.max(0, top - 160);
+    }
     const r = document.getElementById('grid').getBoundingClientRect();
     const w = app.getLayout().cellWidth;
     return { x: r.left + w * ${cell} + w / 2, y: r.top + 22 * ${row} + 11 };
@@ -160,7 +167,9 @@ await check('Tailwind carregou (cabeçalho estilizado)', async () => {
 
 await check('cabeçalho tem valores padrão', async () => {
   assert.equal(await evaluate('document.getElementById("bpm-input").value'), '120');
-  assert.equal(await evaluate('document.getElementById("division-select").value'), '1/4');
+  assert.equal(await evaluate('document.getElementById("division-select").value'), '1/16');
+  assert.equal(await evaluate('document.getElementById("meter-select").value'), '4/4');
+  assert.equal(await evaluate('document.querySelectorAll("#mixer input[type=range]").length'), 4);
   assert.equal(await evaluate('document.getElementById("instrument-select").options.length'), 4);
   assert.equal(await evaluate('document.getElementById("loops-input").disabled'), true);
 });
@@ -210,13 +219,17 @@ await check('troca de instrumento: bateria mostra peças e notas do piano ficam 
   await waitFor(`${notesOf('drums')}.length === 1`, 2000, 'nota de bateria');
 });
 
-await check('divisão 1/6 e 1/2 alteram o grid sem perder notas', async () => {
+await check('célula = figura da partitura (1/4 semínima … 1/16T) sem perder notas', async () => {
   const before = await evaluate('document.getElementById("grid").style.width');
-  await setControl('division-select', '1/6');
+  await setControl('division-select', '1/16T');
   assert.equal(await evaluate('window.__beatProductor.getLayout().ticksPerCell'), 2);
-  await setControl('division-select', '1/2');
+  await setControl('division-select', '1/8');
   assert.equal(await evaluate('window.__beatProductor.getLayout().ticksPerCell'), 6);
   await setControl('division-select', '1/4');
+  assert.equal(await evaluate('window.__beatProductor.getLayout().ticksPerCell'), 12); // 1 célula = 1 batida do BPM
+  const label = await evaluate('document.getElementById("division-select").selectedOptions[0].textContent');
+  assert.match(label, /semínima/);
+  await setControl('division-select', '1/16');
   assert.equal(await evaluate('document.getElementById("grid").style.width'), before);
   assert.equal(await evaluate('window.__beatProductor.sequence.notes.length'), 3);
 });
@@ -385,6 +398,118 @@ await check('Delete apaga a seleção', async () => {
   assert.equal(await evaluate('window.__beatProductor.store.get().tool'), 'draw');
 });
 
+const SELECTED = 'document.querySelectorAll(".note.is-selected").length';
+const rowNotes = (row) => `${notesOf('drums')}.filter(n => n.midi === window.__beatProductor.range[${row}])`;
+const CTRL = 2;
+
+await check('lixeira só fica ativa com seleção e apaga as notas selecionadas', async () => {
+  for (const cell of [0, 1]) {
+    const p = await cellPoint(16, cell);
+    await click(p.x, p.y);
+  }
+  await waitFor(`${rowNotes(16)}.length === 2`, 2000, '2 notas');
+  assert.equal(await evaluate('document.getElementById("delete-button").disabled'), true);
+  await clickElement('#tool-select');
+  const a = await cellPoint(15, 0);
+  const b = await cellPoint(17, 1);
+  await drag(a.x - 8, a.y, b.x, b.y);
+  await waitFor(`${SELECTED} === 2`, 2000, '2 selecionadas');
+  assert.equal(await evaluate('document.getElementById("delete-button").disabled'), false);
+  await clickElement('#delete-button');
+  await waitFor(`${rowNotes(16)}.length === 0`, 2000, 'apagadas pela lixeira');
+  assert.equal(await evaluate('document.getElementById("delete-button").disabled'), true);
+});
+
+await check('arrastar a seleção para baixo/cima e para os lados move as notas', async () => {
+  await clickElement('#tool-draw');
+  const p = await cellPoint(16, 2);
+  await click(p.x, p.y);
+  await waitFor(`${rowNotes(16)}.length === 1`, 2000, 'nota criada');
+  const id = await evaluate(`${rowNotes(16)}[0].id`);
+  await clickElement('#tool-select');
+  const q = await cellPoint(16, 2);
+  await drag(q.x, q.y, q.x, q.y + 44); // 2 linhas para baixo
+  await waitFor(`${rowNotes(18)}.length === 1`, 2000, 'desceu 2 linhas');
+  assert.equal(await evaluate(`window.__beatProductor.sequence.getNote(${id}).start`), 6, 'o tempo não muda');
+  const r = await cellPoint(18, 2);
+  const w = await evaluate('window.__beatProductor.getLayout().cellWidth');
+  await drag(r.x, r.y, r.x + w, r.y - 22); // 1 célula à direita e 1 linha para cima
+  await waitFor(`window.__beatProductor.sequence.getNote(${id}).start === 9`, 2000, 'andou 1 célula');
+  assert.equal(await evaluate(`window.__beatProductor.sequence.getNote(${id}).midi`), await evaluate('window.__beatProductor.range[17]'));
+  assert.equal(await evaluate(SELECTED), 1, 'continua selecionada');
+});
+
+await check('setas movem a seleção (↑ = semitom acima, ← = 1 célula)', async () => {
+  const id = await evaluate('window.__beatProductor.grid.getSelection()[0]');
+  await pressKey('ArrowUp', 'ArrowUp', 38);
+  await waitFor(`window.__beatProductor.sequence.getNote(${id}).midi === window.__beatProductor.range[16]`, 2000, 'subiu');
+  await pressKey('ArrowLeft', 'ArrowLeft', 37);
+  await waitFor(`window.__beatProductor.sequence.getNote(${id}).start === 6`, 2000, 'voltou 1 célula');
+});
+
+await check('Ctrl+C / Ctrl+V colam no cursor, encadeiam e funcionam entre instrumentos', async () => {
+  await pressKey('KeyC', 'c', 67, CTRL);
+  await evaluate('window.__beatProductor.transport.seek(48)');
+  await pressKey('KeyV', 'v', 86, CTRL);
+  await waitFor(`${rowNotes(16)}.length === 2`, 2000, '1ª colagem');
+  // a cópia começa no tempo 0 (nota no tick 6): colada em 48 + 6
+  assert.ok(await evaluate(`${rowNotes(16)}.some(n => n.start === 54)`));
+  assert.equal(await evaluate('window.__beatProductor.transport.tick'), 60, 'cursor avança 1 tempo');
+  await pressKey('KeyV', 'v', 86, CTRL);
+  await waitFor(`${rowNotes(16)}.some(n => n.start === 66)`, 2000, '2ª colagem em seguida');
+  assert.equal(await evaluate(SELECTED), 1, 'o que foi colado fica selecionado');
+
+  await setControl('instrument-select', 'lead');
+  await pressKey('KeyV', 'v', 86, CTRL);
+  await waitFor(`${notesOf('lead')}.some(n => n.start === 78)`, 2000, 'colado no lead');
+  await setControl('instrument-select', 'drums');
+});
+
+await check('SEPARAR divide uma nota unida em células', async () => {
+  await clickElement('#tool-draw');
+  const a = await cellPoint(20, 0);
+  const b = await cellPoint(20, 3);
+  await drag(a.x, a.y, b.x, b.y);
+  await waitFor(`${rowNotes(20)}.length === 1 && ${rowNotes(20)}[0].duration === 12`, 2000, 'nota longa');
+  assert.equal(await evaluate('document.getElementById("split-button").disabled'), true);
+  await clickElement('#tool-select');
+  const p = await cellPoint(20, 1);
+  await click(p.x, p.y);
+  await waitFor(`${SELECTED} === 1`, 2000, 'selecionada');
+  assert.equal(await evaluate('document.getElementById("split-button").disabled'), false);
+  assert.equal(await evaluate('document.getElementById("split-button").textContent'), 'SEPARAR (1)');
+  await clickElement('#split-button');
+  await waitFor(`${rowNotes(20)}.length === 4`, 2000, 'separada em 4');
+  assert.equal(await evaluate(SELECTED), 4);
+  assert.equal(await evaluate('document.getElementById("split-button").disabled'), true);
+  await pressKey('Escape', 'Escape', 27);
+  await clickElement('#tool-draw');
+});
+
+await check('compasso 3/4: régua com 3 tempos, compasso de 36 ticks e posição 2.1', async () => {
+  await setControl('meter-select', '3/4');
+  const layout = await evaluate('window.__beatProductor.getLayout()');
+  assert.equal(layout.barTicks, 36);
+  assert.equal(layout.lengthTicks, 4 * 36);
+  assert.equal(await evaluate('document.querySelectorAll("#ruler .ruler-tick").length'), 4 * 3);
+  await evaluate('window.__beatProductor.transport.seek(36)');
+  await waitFor('document.getElementById("position-display").textContent === "2.1"', 2000, 'posição 2.1');
+  await setControl('meter-select', '4/4');
+  assert.equal(await evaluate('window.__beatProductor.getLayout().barTicks'), 48);
+});
+
+await check('mixer: o slider muda o volume do instrumento', async () => {
+  await setControl('volume-lead', 50);
+  assert.equal(await evaluate('window.__beatProductor.store.get().volumes.lead'), 50);
+  assert.equal(await evaluate('document.querySelector("#volume-lead + .mixer-value").textContent'), '50%');
+  if (await evaluate('!!window.__beatProductor.audio')) {
+    await sleep(150); // rampa de 30 ms
+    const gain = await evaluate('window.__beatProductor.audio.buses.lead.gain.value');
+    assert.ok(Math.abs(gain - 2.1 * 0.5) < 0.01, `ganho do canal ${gain}`);
+  }
+  await setControl('volume-lead', 100);
+});
+
 if (await evaluate('typeof window.__beatProductor.audio === "object"')) {
   await check('áudio: AudioContext ativo e vozes agendadas durante o play', async () => {
     await clickElement('#start-button');
@@ -440,6 +565,56 @@ await check('projeto é salvo e restaurado após recarregar a página', async ()
   assert.equal(await evaluate('document.getElementById("instrument-select").value'), 'lofi');
   assert.ok(await evaluate('document.querySelectorAll(".note").length') > 0, 'notas não desenhadas');
   await setControl('bpm-input', 120);
+});
+
+let projectFile = null;
+let projectBefore = null;
+const SNAPSHOT = `JSON.stringify({
+  notes: window.__beatProductor.sequence.toJSON().map(({instrument, midi, start, duration, kind}) => [instrument, midi, start, duration, kind]).sort(),
+  settings: (({ tool, ...rest }) => rest)(window.__beatProductor.store.get()),
+})`;
+
+await check('Exportar projeto baixa um arquivo de texto legível', async () => {
+  await setControl('volume-lead', 40);
+  await setControl('meter-select', '3/4');
+  await clickElement('#export-project-button');
+  const deadline = Date.now() + 10000;
+  let file = null;
+  while (Date.now() < deadline && !file) {
+    file = readdirSync(downloadDir).find((name) => name.endsWith('.txt'));
+    await sleep(100);
+  }
+  assert.ok(file, 'nenhum .txt baixado');
+  projectFile = join(downloadDir, file);
+  await sleep(200);
+  const text = readFileSync(projectFile, 'utf8');
+  assert.match(text, /\[projeto\]/);
+  assert.match(text, /compasso\s+= 3\/4/);
+  assert.match(text, /lead\s+= 40/);
+  assert.match(text, /\[bateria\]/);
+  projectBefore = await evaluate(SNAPSHOT);
+});
+
+await check('Limpar tudo apaga as notas de todos os instrumentos (após confirmar)', async () => {
+  assert.ok(await evaluate('new Set(window.__beatProductor.sequence.notes.map(n => n.instrument)).size') >= 2);
+  await evaluate('window.confirm = () => true');
+  await clickElement('#clear-all-button');
+  await waitFor('window.__beatProductor.sequence.notes.length === 0', 2000, 'tudo apagado');
+});
+
+await check('Importar o arquivo restaura EXATAMENTE o projeto', async () => {
+  await setControl('bpm-input', 150);
+  await setControl('meter-select', '6/8');
+  await setControl('volume-lead', 100);
+  const { root } = await page('DOM.getDocument');
+  const { nodeId } = await page('DOM.querySelector', { nodeId: root.nodeId, selector: '#import-file' });
+  await page('DOM.setFileInputFiles', { nodeId, files: [projectFile] });
+  await waitFor('window.__beatProductor.sequence.notes.length > 0', 3000, 'projeto importado');
+  assert.equal(await evaluate(SNAPSHOT), projectBefore);
+  assert.equal(await evaluate('document.getElementById("meter-select").value'), '3/4');
+  assert.equal(await evaluate('document.getElementById("volume-lead").value'), '40');
+  await setControl('meter-select', '4/4');
+  await setControl('volume-lead', 100);
 });
 
 if (testExport) {
