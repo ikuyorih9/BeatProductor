@@ -37,6 +37,21 @@ def test_health(client):
     assert "mp3" in body["formats"]
 
 
+def test_drum_note_outside_the_kit_is_a_clear_422(client):
+    body = payload(events=[{"time": 0.0, "note": "C4", "duration": 0.1, "instrument": "drums"}])
+    response = client.post("/api/export", json=body)
+    assert response.status_code == 422
+    assert "não é uma peça da bateria" in response.text
+    assert "C3 a G3" in response.text
+
+
+def test_all_8_drum_pieces_export(client):
+    events = [{"time": i * 0.25, "note": n, "duration": 0.1, "instrument": "drums"}
+              for i, n in enumerate(["C3", "C#3", "D3", "D#3", "E3", "F3", "F#3", "G3"])]
+    response = client.post("/api/export", json=payload(events=events, format="wav"))
+    assert response.status_code == 200, response.text
+
+
 def test_export_mp3(client):
     response = client.post("/api/export", json=payload())
     assert response.status_code == 200, response.text

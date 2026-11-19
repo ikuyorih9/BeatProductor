@@ -1,9 +1,11 @@
 /**
  * Coluna de teclas de piano vertical (referência visual à esquerda do grid).
- * No modo Bateria, cada tecla mostra a peça correspondente.
- * Clicar numa tecla chama `onPreview(midi)` (pré-escuta do som).
+ * No modo Bateria, as teclas do kit mostram a peça; as outras ficam desativadas (sem som).
+ * Clicar numa tecla ativa chama `onPreview(midi)` (pré-escuta do som).
  */
-import { drumPieceForMidi, isBlackKey, midiToName, pitchClass } from '../core/music.js';
+import {
+  drumPieceForMidi, isBlackKey, isPlayable, midiToName, pitchClass,
+} from '../core/music.js';
 import { createElement } from './dom.js';
 
 export class PianoKeys {
@@ -17,6 +19,7 @@ export class PianoKeys {
       const key = event.target.closest('[data-midi]');
       if (!key) return;
       event.preventDefault();
+      if (key.classList.contains('key-disabled')) return;
       const midi = Number(key.dataset.midi);
       this.flash(midi);
       this.onPreview(midi);
@@ -35,12 +38,18 @@ export class PianoKeys {
       if (drumMode) classes.push('key-drum');
 
       const name = midiToName(midi);
-      const label = drumMode ? drumPieceForMidi(midi).label : (black ? '' : name);
-      const key = createElement('div', classes.join(' '), {
-        'data-midi': String(midi),
-        title: drumMode ? `${drumPieceForMidi(midi).label} (${name})` : name,
-        text: label,
-      });
+      const piece = drumMode ? drumPieceForMidi(midi) : null;
+      let label = black ? '' : name;
+      let title = name;
+      if (drumMode && piece) {
+        label = piece.label;
+        title = `${piece.label} (${name})`;
+      } else if (drumMode) {
+        label = '';
+        title = `${name} — fora do kit de bateria`;
+      }
+      if (!isPlayable(instrument, midi)) classes.push('key-disabled');
+      const key = createElement('div', classes.join(' '), { 'data-midi': String(midi), title, text: label });
       this.keys.set(midi, key);
       this.container.appendChild(key);
     }

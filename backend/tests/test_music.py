@@ -1,6 +1,6 @@
 import pytest
 
-from app.core.music import drum_piece_for_midi, midi_to_frequency, midi_to_name, note_to_midi
+from app.core.music import DRUM_KIT, drum_piece_for_midi, midi_to_frequency, midi_to_name, note_to_midi
 
 
 def test_note_to_midi_known_values():
@@ -29,8 +29,20 @@ def test_frequencies():
     assert midi_to_frequency(60) == pytest.approx(261.6256, abs=1e-3)
 
 
-def test_drum_mapping_matches_frontend():
-    # Mesma tabela de frontend/tests/music.test.js
-    assert [drum_piece_for_midi(m) for m in range(60, 64)] == ["kick", "snare", "hihat_closed", "hihat_open"]
-    assert drum_piece_for_midi(64) == "kick"
-    assert drum_piece_for_midi(48) == drum_piece_for_midi(72)
+def test_drum_kit_matches_frontend():
+    # Mesmas teclas de DRUM_PIECES em frontend/js/config.js (C3 a G3, uma peça por tecla).
+    assert [drum_piece_for_midi(m) for m in range(48, 56)] == [
+        "kick", "snare", "hihat", "floor_tom", "tom2", "tom1", "ride", "crash",
+    ]
+    assert drum_piece_for_midi(47) is None
+    assert drum_piece_for_midi(56) is None
+    assert drum_piece_for_midi(60) is None  # antes, C4 repetia o bumbo
+
+
+def test_drum_kit_is_the_same_in_frontend_config():
+    import re
+    from pathlib import Path
+
+    config = (Path(__file__).resolve().parents[2] / "frontend" / "js" / "config.js").read_text(encoding="utf-8")
+    pieces = re.findall(r"\{ id: '(\w+)', label: '[^']+', midi: (\d+),", config)
+    assert {int(midi): piece for piece, midi in pieces} == DRUM_KIT

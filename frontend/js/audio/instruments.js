@@ -71,16 +71,39 @@ function noiseSource(ctx, noiseBuffer) {
   return source;
 }
 
-function kick(ctx, when) {
+/**
+ * Bumbo: seno grave com queda de afinação + "knock" médio + estalo do pedal. Só o grave
+ * (50 Hz) some em alto-falantes pequenos (notebook, celular); o knock (330→110 Hz) e o estalo
+ * fazem o bumbo ser ouvido em qualquer caixa de som.
+ */
+function kick(ctx, when, noiseBuffer) {
   const output = ctx.createGain();
-  const osc = oscillator(ctx, 'sine', 150);
-  osc.frequency.setValueAtTime(150, when);
-  osc.frequency.exponentialRampToValueAtTime(45, when + 0.12);
-  osc.connect(output);
-  output.gain.setValueAtTime(0, when);
-  output.gain.linearRampToValueAtTime(0.95, when + 0.003);
-  output.gain.exponentialRampToValueAtTime(0.001, when + 0.45);
-  return { output, sources: [osc], endTime: when + 0.47 };
+  const osc = oscillator(ctx, 'sine', 160);
+  osc.frequency.setValueAtTime(160, when);
+  osc.frequency.exponentialRampToValueAtTime(50, when + 0.12);
+  const bodyGain = ctx.createGain();
+  osc.connect(bodyGain).connect(output);
+  bodyGain.gain.setValueAtTime(0, when);
+  bodyGain.gain.linearRampToValueAtTime(0.8, when + 0.003);
+  bodyGain.gain.exponentialRampToValueAtTime(0.001, when + 0.45);
+
+  const knock = oscillator(ctx, 'sine', 330);
+  knock.frequency.setValueAtTime(330, when);
+  knock.frequency.exponentialRampToValueAtTime(110, when + 0.04);
+  const knockGain = ctx.createGain();
+  knock.connect(knockGain).connect(output);
+  knockGain.gain.setValueAtTime(0.3, when);
+  knockGain.gain.exponentialRampToValueAtTime(0.001, when + 0.12);
+
+  const click = noiseSource(ctx, noiseBuffer);
+  const highpass = ctx.createBiquadFilter();
+  highpass.type = 'highpass';
+  highpass.frequency.value = 3000;
+  const clickGain = ctx.createGain();
+  click.connect(highpass).connect(clickGain).connect(output);
+  clickGain.gain.setValueAtTime(0.18, when);
+  clickGain.gain.exponentialRampToValueAtTime(0.001, when + 0.02);
+  return { output, sources: [osc, knock, click], endTime: when + 0.47 };
 }
 
 function snare(ctx, when, noiseBuffer) {
@@ -115,13 +138,86 @@ function hihat(ctx, when, noiseBuffer, decay) {
   return { output, sources: [noise], endTime: when + decay + 0.02 };
 }
 
-/** Bateria: a peça vem da nota (classe de altura % 4). Sons one-shot. */
+/**
+ * Tons (surdo, tom 2, tom 1): seno com queda de afinação de `from` para `to` Hz e um estalo
+ * curto de baqueta (ruído agudo) no ataque.
+ */
+export const TOMS = Object.freeze({
+  floor_tom: { from: 120, to: 82, glide: 0.2, decay: 0.7 },
+  tom2: { from: 165, to: 118, glide: 0.18, decay: 0.55 },
+  tom1: { from: 220, to: 160, glide: 0.16, decay: 0.45 },
+});
+
+function tom(ctx, when, noiseBuffer, { from, to, glide, decay }) {
+  const output = ctx.createGain();
+  const osc = oscillator(ctx, 'sine', from);
+  osc.frequency.setValueAtTime(from, when);
+  osc.frequency.exponentialRampToValueAtTime(to, when + glide);
+  const bodyGain = ctx.createGain();
+  osc.connect(bodyGain).connect(output);
+  bodyGain.gain.setValueAtTime(0, when);
+  bodyGain.gain.linearRampToValueAtTime(0.8, when + 0.002);
+  bodyGain.gain.exponentialRampToValueAtTime(0.001, when + decay);
+
+  const stick = noiseSource(ctx, noiseBuffer);
+  const highpass = ctx.createBiquadFilter();
+  highpass.type = 'highpass';
+  highpass.frequency.value = 2000;
+  const stickGain = ctx.createGain();
+  stick.connect(highpass).connect(stickGain).connect(output);
+  stickGain.gain.setValueAtTime(0.12, when);
+  stickGain.gain.exponentialRampToValueAtTime(0.001, when + 0.05);
+  return { output, sources: [osc, stick], endTime: when + decay + 0.02 };
+}
+
+/** Frequências (Hz) das 6 ondas quadradas do timbre metálico dos pratos (estilo TR-808). */
+export const METAL_FREQUENCIES = Object.freeze([205.3, 304.4, 369.6, 522.7, 540, 800]);
+
+/** Pratos: ondas quadradas desafinadas entre si (metal) + ruído, filtrados no agudo. */
+export const CYMBALS = Object.freeze({
+  ride: { metal: 0.3, metalCutoff: 5000, noise: 0.08, decay: 1.6 },
+  crash: { metal: 0.2, metalCutoff: 6000, noise: 0.35, decay: 1.8 },
+});
+
+function cymbal(ctx, when, noiseBuffer, { metal, metalCutoff, noise, decay }) {
+  const output = ctx.createGain();
+  const metalHighpass = ctx.createBiquadFilter();
+  metalHighpass.type = 'highpass';
+  metalHighpass.frequency.value = metalCutoff;
+  const metalGain = ctx.createGain();
+  metalGain.gain.value = metal / METAL_FREQUENCIES.length;
+  metalHighpass.connect(metalGain).connect(output);
+  const sources = METAL_FREQUENCIES.map((frequency) => {
+    const osc = oscillator(ctx, 'square', frequency);
+    osc.connect(metalHighpass);
+    return osc;
+  });
+
+  const hiss = noiseSource(ctx, noiseBuffer);
+  const noiseHighpass = ctx.createBiquadFilter();
+  noiseHighpass.type = 'highpass';
+  noiseHighpass.frequency.value = 5000;
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.value = noise;
+  hiss.connect(noiseHighpass).connect(noiseGain).connect(output);
+  sources.push(hiss);
+
+  output.gain.setValueAtTime(0, when);
+  output.gain.linearRampToValueAtTime(1, when + 0.002);
+  output.gain.exponentialRampToValueAtTime(0.001, when + decay);
+  return { output, sources, endTime: when + decay + 0.02 };
+}
+
+/** Bateria: cada tecla do kit é uma peça (ver DRUM_PIECES). Sons one-shot. */
 export function drums(ctx, { midi, when }, { noiseBuffer }) {
-  switch (drumPieceForMidi(midi).id) {
-    case 'kick': return kick(ctx, when);
+  const piece = drumPieceForMidi(midi);
+  switch (piece?.id) {
+    case 'kick': return kick(ctx, when, noiseBuffer);
     case 'snare': return snare(ctx, when, noiseBuffer);
-    case 'hihat_closed': return hihat(ctx, when, noiseBuffer, 0.08);
-    default: return hihat(ctx, when, noiseBuffer, 0.35);
+    case 'hihat': return hihat(ctx, when, noiseBuffer, 0.08);
+    case 'floor_tom': case 'tom2': case 'tom1': return tom(ctx, when, noiseBuffer, TOMS[piece.id]);
+    case 'ride': case 'crash': return cymbal(ctx, when, noiseBuffer, CYMBALS[piece.id]);
+    default: throw new Error(`a tecla ${midi} não faz parte da bateria`);
   }
 }
 

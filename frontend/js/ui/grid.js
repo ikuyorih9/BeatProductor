@@ -12,10 +12,12 @@
  *     Shift+clique → adiciona/remove da seleção; clique no vazio → limpa a seleção.
  * - Botão direito: célula vazia → PAUSA de 1 célula; sobre nota/pausa → apaga.
  * - Clique na régua → posiciona o cursor.
+ * Linhas fora da faixa do instrumento atual (na bateria: fora do kit) ficam desativadas:
+ * não recebem notas/pausas e a seleção não pode ser arrastada para elas.
  */
 import { INSTRUMENTS, ROW_HEIGHT } from '../config.js';
 import { cellAtX, dragToSpan, rowAtY } from '../core/layout.js';
-import { isBlackKey, midiToName, pitchClass } from '../core/music.js';
+import { isBlackKey, isPlayable, midiToName, pitchClass, playableRange } from '../core/music.js';
 import { clampMove, itemsInRect } from '../core/selection.js';
 import { formatBarBeat } from '../core/timing.js';
 import { createElement } from './dom.js';
@@ -60,12 +62,29 @@ export class PianoRollGrid {
     this._bindRulerEvents();
   }
 
+  /** Redesenha as linhas (chamar quando o instrumento muda: a faixa ativa depende dele). */
+  refreshRows() {
+    this._renderRows();
+  }
+
+  /** Linhas (índices) que o instrumento atual aceita: { minRow, maxRow }. */
+  playableRows() {
+    const { minMidi, maxMidi } = playableRange(this.getState().instrument);
+    return { minRow: this.rowIndex.get(maxMidi) ?? 0, maxRow: this.rowIndex.get(minMidi) ?? this.range.length - 1 };
+  }
+
+  _rowEnabled(row) {
+    return isPlayable(this.getState().instrument, this.range[row]);
+  }
+
   _renderRows() {
     const fragment = document.createDocumentFragment();
+    const { instrument } = this.getState();
     for (const midi of this.range) {
       const classes = ['grid-row'];
       if (isBlackKey(midi)) classes.push('is-black');
       if (pitchClass(midi) === 0) classes.push('is-c');
+      if (!isPlayable(instrument, midi)) classes.push('is-disabled');
       fragment.appendChild(createElement('div', classes.join(' '), { 'data-midi': String(midi) }));
     }
     this.el.rows.replaceChildren(fragment);
@@ -271,7 +290,7 @@ export class PianoRollGrid {
     const wantedTicks = Math.round((event.clientX - this.move.x0) / cellWidth) * ticksPerCell;
     const selected = this._ownItems().filter((item) => this.selection.has(item.id));
     const { dRows, dTicks } = clampMove(selected, wantedRows, wantedTicks, {
-      rowIndex: this.rowIndex, rowCount: this.range.length, lengthTicks,
+      rowIndex: this.rowIndex, rowCount: this.range.length, lengthTicks, ...this.playableRows(),
     });
     if (dRows === this.move.dRows && dTicks === this.move.dTicks) return;
     this.move.dRows = dRows;
@@ -329,6 +348,7 @@ export class PianoRollGrid {
       }
 
       const { row, cell } = this._pointToCell(event);
+      if (!this._rowEnabled(row)) return; // tecla desativada para este instrumento
       this.drag = { pointerId: event.pointerId, row, startCell: cell, endCell: cell };
       this._capture(event.pointerId);
       this._showGhost();
@@ -386,6 +406,7 @@ export class PianoRollGrid {
         return;
       }
       const { row, cell } = this._pointToCell(event);
+      if (!this._rowEnabled(row)) return;
       this.onAddRest({ midi: this.range[row], start: cell * this.layout.ticksPerCell, duration: this.layout.ticksPerCell });
     });
   }

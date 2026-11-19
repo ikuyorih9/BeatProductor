@@ -91,11 +91,19 @@ html, body { height: 100%; }
 }
 .key-drum.key-black, .key-drum.key-black:hover { background: #172033; color: #cbd5e1; }
 .key-drum:hover { filter: brightness(1.25); }
+/* Teclas fora da faixa do instrumento (ex.: na bateria, tudo fora do kit C3–G3). */
+.key-disabled, .key-disabled:hover, .key-drum.key-disabled, .key-drum.key-black.key-disabled {
+  background: repeating-linear-gradient(135deg, #1f2937 0 6px, #273244 6px 12px);
+  color: transparent; cursor: not-allowed; filter: none;
+}
 
 /* ---------- Grid ---------- */
 .grid-row { height: var(--row-height); background: var(--grid-bg); border-bottom: 1px solid #111b2e; }
 .grid-row.is-black { background: var(--grid-bg-black); }
 .grid-row.is-c { border-bottom: 2px solid #1e3a5f; }
+.grid-row.is-disabled {
+  background: repeating-linear-gradient(135deg, rgba(71, 85, 105, 0.32) 0 6px, rgba(51, 65, 85, 0.18) 6px 12px);
+}
 
 #grid { cursor: crosshair; }
 

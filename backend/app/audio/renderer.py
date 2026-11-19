@@ -63,7 +63,7 @@ def _scale(instrument: str, midi: int, gain: float) -> float:
     O cache guarda a voz sem ganho; a escala é aplicada na mixagem."""
     scale = INSTRUMENT_TRIM.get(instrument, 1.0) * gain
     if instrument == "drums":
-        scale *= DRUM_PIECE_TRIM[drum_piece_for_midi(midi)]
+        scale *= DRUM_PIECE_TRIM[drum_piece_for_midi(midi)]  # tecla fora do kit é barrada no schema
     return scale
 
 

@@ -106,7 +106,7 @@ test('o arquivo é legível: cabeçalho, volume e notas por instrumento', () => 
   seq.addRest({ instrument: 'piano', midi: 62, start: 48, duration: 24 });
   seq.addNote({ instrument: 'drums', midi: 48, start: 0, duration: 3 });
   const text = serializeProjectFile(defaultSettings(), seq.toJSON());
-  assert.match(text, /\[projeto\]\nversao\s+= 1\nbpm\s+= 120/);
+  assert.match(text, /\[projeto\]\nversao\s+= 2\nbpm\s+= 120/);
   assert.match(text, /compasso\s+= 4\/4/);
   assert.match(text, /\[volume\][^\n]*\npiano\s+= 100/);
   assert.match(text, /\[piano\]\n# posição  nota  duração\n1\.1\s+C4\s+1\n1\.2\+1\/2\s+E4\s+1\/2\n2\.1\s+D4\s+2\s+pausa\n/);

@@ -26,7 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from .core.config import (
     MAX_EVENTS, MAX_GAIN, MAX_LOOPS, MAX_NOTE_SECONDS, MAX_PATTERN_SECONDS, MAX_TOTAL_SECONDS,
 )
-from .core.music import NOTE_PATTERN, note_to_midi
+from .core.music import DRUM_KIT, NOTE_PATTERN, drum_piece_for_midi, midi_to_name, note_to_midi
 
 Instrument = Literal["piano", "drums", "lofi", "lead"]
 
@@ -50,6 +50,15 @@ class NoteEvent(BaseModel):
         if not 0 <= midi <= 127:
             raise ValueError("nota fora da faixa MIDI (0–127)")
         return value
+
+    @model_validator(mode="after")
+    def _drum_note_in_kit(self) -> "NoteEvent":
+        if self.instrument == "drums" and drum_piece_for_midi(note_to_midi(self.note)) is None:
+            raise ValueError(
+                f"a nota {self.note} não é uma peça da bateria "
+                f"(o kit vai de {midi_to_name(min(DRUM_KIT))} a {midi_to_name(max(DRUM_KIT))})"
+            )
+        return self
 
 
 class ExportRequest(BaseModel):

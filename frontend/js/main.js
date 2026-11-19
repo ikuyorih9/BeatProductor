@@ -1,12 +1,14 @@
 /**
  * Ponto de entrada do frontend: cria o estado, os componentes e liga tudo.
  */
-import { HIGHEST_MIDI, INSTRUMENT_IDS, INSTRUMENTS, LOWEST_MIDI, OCTAVES } from './config.js';
+import {
+  INSTRUMENT_IDS, INSTRUMENTS, LOWEST_MIDI, OCTAVES, ROW_HEIGHT,
+} from './config.js';
 import { AudioEngine } from './audio/engine.js';
 import { AudioScheduler } from './audio/scheduler.js';
 import { buildExportPayload } from './core/export.js';
 import { computeLayout } from './core/layout.js';
-import { buildRange } from './core/music.js';
+import { buildRange, isPlayable, playableRange } from './core/music.js';
 import { defaultSettings } from './core/project.js';
 import { parseProjectFile, serializeProjectFile } from './core/project-file.js';
 import {
@@ -27,7 +29,6 @@ import { showToast } from './ui/toast.js';
 import { initTransportControls } from './ui/transport-controls.js';
 
 const INSTRUMENT_LABEL = Object.fromEntries(INSTRUMENTS.map((i) => [i.id, i.label]));
-const MIDI_BOUNDS = { minMidi: LOWEST_MIDI, maxMidi: HIGHEST_MIDI };
 
 // ---------------------------------------------------------------- estado (restaurado do último uso, se houver)
 const saved = loadProject();
@@ -186,6 +187,19 @@ function previewNote(midi, duration = 0.35) {
   });
 }
 
+/** Rola o grid na vertical para mostrar as teclas do instrumento (o kit da bateria fica embaixo). */
+function revealPlayableRows(instrument) {
+  const { minMidi, maxMidi } = playableRange(instrument);
+  if (minMidi === LOWEST_MIDI && maxMidi === range[0]) return; // faixa inteira: nada a fazer
+  const scroller = byId('roll-scroll');
+  const top = rowIndex.get(maxMidi) * ROW_HEIGHT;
+  const bottom = (rowIndex.get(minMidi) + 1) * ROW_HEIGHT;
+  const rulerHeight = 24;
+  const visible = scroller.clientHeight - rulerHeight;
+  if (top >= scroller.scrollTop && bottom <= scroller.scrollTop + visible) return;
+  scroller.scrollTop = Math.max(0, bottom - visible + ROW_HEIGHT);
+}
+
 function seek(tick) {
   transport.seek(tick);
   playhead.reveal(transport.tick, layout.pxPerTick);
@@ -276,7 +290,8 @@ function deleteSelection() {
 
 /** Move a seleção (ids preservados). dMidi em semitons, dTicks em ticks. */
 function applyMove(ids, dMidi, dTicks) {
-  if (sequence.moveItems(ids, dMidi, dTicks, MIDI_BOUNDS) === 0) return;
+  // Limites da faixa do instrumento (na bateria, só as teclas do kit).
+  if (sequence.moveItems(ids, dMidi, dTicks, playableRange(store.get().instrument)) === 0) return;
   onSequenceChanged();
   // Ao mudar a altura, deixa ouvir a nova nota mais aguda da seleção.
   if (dMidi !== 0 && !transport.playing) {
@@ -289,7 +304,9 @@ function applyMove(ids, dMidi, dTicks) {
 function nudgeSelection(dMidi, dTicks) {
   const items = selectedItems();
   if (items.length === 0) return;
-  const limited = clampMove(items, -dMidi, dTicks, { rowIndex, rowCount: range.length, lengthTicks: layout.lengthTicks });
+  const limited = clampMove(items, -dMidi, dTicks, {
+    rowIndex, rowCount: range.length, lengthTicks: layout.lengthTicks, ...grid.playableRows(),
+  });
   if (limited.dRows === 0 && limited.dTicks === 0) return;
   applyMove(items.map((n) => n.id), -limited.dRows, limited.dTicks);
 }
@@ -318,8 +335,18 @@ function pasteClipboard() {
   const { instrument } = store.get();
   // Cola no cursor, alinhado à célula do grid.
   const start = Math.floor(transport.tick / layout.ticksPerCell) * layout.ticksPerCell;
-  const pasted = sequence.insertItems(pasteItems(clipboard, { instrument, start }));
+  const placed = pasteItems(clipboard, { instrument, start });
+  // Na bateria só valem as teclas do kit: o que foi copiado de outras alturas fica de fora.
+  const fitting = placed.filter((item) => isPlayable(instrument, item.midi));
+  if (fitting.length === 0) {
+    showToast(`Nada colado: as notas copiadas estão fora das teclas de ${INSTRUMENT_LABEL[instrument]}.`, 'error');
+    return;
+  }
+  const pasted = sequence.insertItems(fitting);
   onSequenceChanged();
+  if (fitting.length < placed.length) {
+    showToast(`${placed.length - fitting.length} bloco(s) ficaram de fora: fora das teclas de ${INSTRUMENT_LABEL[instrument]}.`, 'error');
+  }
   grid.setSelection(pasted.map((n) => n.id));
   const outside = pasted.filter((n) => n.start >= layout.lengthTicks).length;
   if (outside > 0) {
@@ -448,8 +475,10 @@ store.subscribe((state, _previous, changed) => {
   if (has('bpm') || has('division') || has('bars') || has('meter')) relayout();
   if (has('instrument')) {
     keys.render(state.instrument);
+    grid.refreshRows(); // a faixa ativa depende do instrumento (bateria: só o kit)
     grid.clearSelection(); // a seleção vale só para o instrumento atual
     grid.renderNotes();
+    revealPlayableRows(state.instrument);
   }
   if (has('instrument') || has('bars') || has('bpm') || has('meter')) updateStatus();
   if (!(changed.length === 1 && has('tool'))) autosave();
@@ -570,6 +599,7 @@ window.__beatProductor = {
 keys.render(store.get().instrument);
 applyVolumes(store.get().volumes);
 relayout();
+revealPlayableRows(store.get().instrument);
 updateStatus();
 controls.setPlaying(false);
 window.requestAnimationFrame(frame);

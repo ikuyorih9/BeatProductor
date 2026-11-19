@@ -38,7 +38,7 @@ Cada evento:
 | Campo | Tipo | Regra |
 |---|---|---|
 | `time` | número | ≥ 0 e menor que `length` (segundos) |
-| `note` | texto | Nome científico: `C4`, `F#3`… (sem bemóis) |
+| `note` | texto | Nome científico: `C4`, `F#3`… (sem bemóis). Na bateria, só as 8 teclas do kit, `C3` a `G3` (bumbo, caixa, chimbal, surdo, tom 2, tom 1, ride, prato de ataque); outra nota dá **422** |
 | `duration` | número | 0 < x ≤ 120 (segundos) |
 | `instrument` | texto | `piano`, `drums`, `lofi` ou `lead` |
 | `gain` | número (opcional) | 0 ≤ x ≤ 4 — ganho linear do instrumento no mixer (padrão 1 = 100%; 0 = mudo; o app envia (volume%/100)², então 200% = 4). O servidor aplica por cima a calibração de cada instrumento e de cada peça da bateria. |

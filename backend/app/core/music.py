@@ -6,7 +6,19 @@ Espelha frontend/js/core/music.js — as duas implementações precisam concorda
 import re
 
 NOTE_NAMES = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
-DRUM_PIECES = ("kick", "snare", "hihat_closed", "hihat_open")
+#: Kit de bateria: peça → tecla (MIDI). Só estas teclas valem na bateria (C3 a G3).
+#: Espelha DRUM_PIECES de frontend/js/config.js.
+DRUM_KIT = {
+    48: "kick",       # C3  bumbo
+    49: "snare",      # C#3 caixa
+    50: "hihat",      # D3  chimbal
+    51: "floor_tom",  # D#3 surdo
+    52: "tom2",       # E3  tom 2
+    53: "tom1",       # F3  tom 1
+    54: "ride",       # F#3 ride
+    55: "crash",      # G3  prato de ataque
+}
+DRUM_PIECES = tuple(DRUM_KIT.values())
 
 NOTE_PATTERN = r"^[A-G]#?-?\d$"
 _NOTE_RE = re.compile(r"^([A-G]#?)(-?\d)$")
@@ -29,6 +41,6 @@ def midi_to_frequency(midi: int) -> float:
     return 440.0 * 2.0 ** ((midi - 69) / 12.0)
 
 
-def drum_piece_for_midi(midi: int) -> str:
-    """Peça da bateria pela classe de altura % 4 (C = bumbo, C# = caixa, D = hi-hat fechado, D# = hi-hat aberto…)."""
-    return DRUM_PIECES[(midi % 12) % len(DRUM_PIECES)]
+def drum_piece_for_midi(midi: int) -> str | None:
+    """Peça da bateria tocada pela tecla, ou None se a tecla não faz parte do kit."""
+    return DRUM_KIT.get(midi)

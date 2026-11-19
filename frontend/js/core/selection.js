@@ -52,9 +52,10 @@ export function countSplittable(items, selectedIds, cellTicks) {
 /**
  * Limita um arraste da seleção para que nenhum item saia do grid.
  * dRows > 0 = para baixo (notas mais graves). Retorna o deslocamento possível.
- * @param {{rowIndex:Map<number,number>, rowCount:number, lengthTicks:number}} bounds
+ * `minRow`/`maxRow` limitam as linhas permitidas (ex.: só as teclas do kit na bateria).
+ * @param {{rowIndex:Map<number,number>, rowCount:number, lengthTicks:number, minRow?:number, maxRow?:number}} bounds
  */
-export function clampMove(items, dRows, dTicks, { rowIndex, rowCount, lengthTicks }) {
+export function clampMove(items, dRows, dTicks, { rowIndex, rowCount, lengthTicks, minRow: firstRow = 0, maxRow: lastRow = rowCount - 1 }) {
   if (items.length === 0) return { dRows: 0, dTicks: 0 };
   const rows = items.map((item) => rowIndex.get(item.midi));
   const minRow = Math.min(...rows);
@@ -62,7 +63,7 @@ export function clampMove(items, dRows, dTicks, { rowIndex, rowCount, lengthTick
   const minStart = Math.min(...items.map((item) => item.start));
   const maxStart = Math.max(...items.map((item) => item.start));
   return {
-    dRows: Math.min(Math.max(dRows, -minRow), rowCount - 1 - maxRow),
+    dRows: Math.min(Math.max(dRows, firstRow - minRow), lastRow - maxRow),
     // Nenhum item pode começar antes do 0 nem depois do fim do grid.
     dTicks: Math.min(Math.max(dTicks, -minStart), lengthTicks - 1 - maxStart),
   };

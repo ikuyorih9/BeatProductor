@@ -9,7 +9,7 @@
  * compressor "devolva" o reforço; o limitador suave só atua nos picos e garante que a saída
  * nunca passe de 0 dBFS (sem distorção digital), mesmo com tudo no máximo.
  */
-import { DRUM_PIECE_TRIM, INSTRUMENT_TRIM, VOLUME } from '../config.js';
+import { INSTRUMENT_TRIM, VOLUME } from '../config.js';
 import { drumPieceForMidi } from '../core/music.js';
 import { volumeToGain } from '../core/volume.js';
 import { INSTRUMENT_FACTORIES } from './instruments.js';
@@ -50,7 +50,8 @@ export function createOutputChain(ctx) {
   return { master, compressor, clipper };
 }
 
-function createNoiseBuffer(ctx, seconds = 1) {
+/** Ruído branco compartilhado pelas vozes da bateria (2 s: cobre a cauda do prato de ataque). */
+export function createNoiseBuffer(ctx, seconds = 2) {
   const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * seconds), ctx.sampleRate);
   const data = buffer.getChannelData(0);
   for (let i = 0; i < data.length; i += 1) data[i] = Math.random() * 2 - 1;
@@ -114,12 +115,15 @@ export class AudioEngine {
   playNote({ instrument, midi, when, duration }) {
     const factory = INSTRUMENT_FACTORIES[instrument];
     if (!factory) return null;
+    // Na bateria só as teclas do kit soam (as outras ficam desativadas na interface).
+    const piece = instrument === 'drums' ? drumPieceForMidi(midi) : null;
+    if (instrument === 'drums' && !piece) return null;
     const start = Math.max(when, this.context.currentTime);
     const voice = factory(this.context, { midi, when: start, duration: Math.max(0.02, duration) }, { noiseBuffer: this.noiseBuffer });
 
     const kill = this.context.createGain();
     // Na bateria, cada peça tem a sua calibração (o fade de corte parte deste valor).
-    if (instrument === 'drums') kill.gain.value = DRUM_PIECE_TRIM[drumPieceForMidi(midi).id] ?? 1;
+    if (piece) kill.gain.value = piece.trim;
     voice.output.connect(kill).connect(this.buses[instrument]);
     voice.kill = kill;
     voice.startTime = start;

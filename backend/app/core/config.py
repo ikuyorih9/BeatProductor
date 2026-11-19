@@ -11,12 +11,16 @@ INSTRUMENTS = ("piano", "drums", "lofi", "lead")
 #: Calibração de volume por instrumento (ganho linear), medida para que todos soem
 #: com intensidade parecida no volume 100%. O volume escolhido pelo usuário
 #: (campo `gain` de cada evento) é aplicado por cima disto.
-INSTRUMENT_TRIM = {"piano": 1.0, "drums": 1.25, "lofi": 1.0, "lead": 1.9}
+#: A bateria leva ~+3,5 dB acima da calibração por RMS (golpes curtos soam mais baixos que notas
+#: sustentadas) — o mesmo reforço efetivo que ela ganhou no navegador.
+INSTRUMENT_TRIM = {"piano": 1.0, "drums": 1.85, "lofi": 1.0, "lead": 1.9}
 
-#: Calibração de cada peça da bateria (sobre INSTRUMENT_TRIM["drums"]): caixa e hi-hats
-#: soavam 10–18 dB abaixo do bumbo; com isto ficam no mesmo equilíbrio do navegador
-#: (caixa −1,5, hi-hat fechado −8, aberto −5 dB em relação ao bumbo).
-DRUM_PIECE_TRIM = {"kick": 1.0, "snare": 2.3, "hihat_closed": 3.9, "hihat_open": 2.6}
+#: Calibração de cada peça da bateria (sobre INSTRUMENT_TRIM["drums"]), para que nenhuma
+#: fique enterrada em relação ao bumbo (ver tests/test_renderer.py).
+DRUM_PIECE_TRIM = {
+    "kick": 1.18, "snare": 2.3, "hihat": 3.9, "floor_tom": 0.87,
+    "tom2": 0.96, "tom1": 1.06, "ride": 3.25, "crash": 1.3,
+}
 
 #: Ganho máximo por evento. O frontend usa curva perceptiva: ganho = (volume% / 100)²,
 #: então 200% = 4.0 (+12 dB).

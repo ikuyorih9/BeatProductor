@@ -80,21 +80,29 @@ export const DEFAULT_INSTRUMENT = 'piano';
  * Calibração de volume por instrumento no navegador (ganho linear), medida para que
  * todos soem com intensidade parecida no volume 100%. O backend tem a sua própria
  * (backend/app/core/config.py), porque os sintetizadores são implementações diferentes.
+ * A bateria leva +6 dB a mais que a calibração por RMS: golpes curtos soam mais baixos que notas
+ * sustentadas com o mesmo RMS, e no 100% ela ficava abaixo do piano (o limitador segura os picos).
  */
-export const INSTRUMENT_TRIM = Object.freeze({ piano: 0.85, drums: 1.0, lofi: 1.0, lead: 2.1 });
+export const INSTRUMENT_TRIM = Object.freeze({ piano: 0.85, drums: 2.0, lofi: 1.0, lead: 2.1 });
 
 /**
- * Calibração de cada peça da bateria no navegador: caixa e hi-hats soavam 10–21 dB abaixo do bumbo.
- * Medido na cadeia de saída real: caixa ≈ −1,5, hi-hat fechado ≈ −8, aberto ≈ −5 dB em relação ao bumbo.
+ * Kit de bateria: 8 peças, cada uma numa tecla fixa (C3 a G3, de baixo para cima no grid).
+ * Só essas teclas valem na bateria; as outras ficam desativadas.
+ * `trim` = calibração da peça no navegador (ganho linear sobre INSTRUMENT_TRIM.drums), medida na
+ * cadeia de saída real para que nenhuma peça fique enterrada (ver tests/e2e/smoke.mjs).
+ * Mantenha em sincronia com backend/app/core/music.py (mesmas teclas) e config.py (trims do servidor).
  */
-export const DRUM_PIECE_TRIM = Object.freeze({ kick: 1.0, snare: 2.8, hihat_closed: 7.0, hihat_open: 2.4 });
-
-/** Peças da bateria, atribuídas pela classe de altura da nota (pitch class % 4). */
 export const DRUM_PIECES = Object.freeze([
-  { id: 'kick', label: 'Bumbo' },
-  { id: 'snare', label: 'Caixa' },
-  { id: 'hihat_closed', label: 'Hi-Hat fechado' },
-  { id: 'hihat_open', label: 'Hi-Hat aberto' },
-]);
+  { id: 'kick', label: 'Bumbo', midi: 48, trim: 1.18 },
+  { id: 'snare', label: 'Caixa', midi: 49, trim: 2.8 },
+  { id: 'hihat', label: 'Chimbal', midi: 50, trim: 7.0 },
+  { id: 'floor_tom', label: 'Surdo', midi: 51, trim: 0.77 },
+  { id: 'tom2', label: 'Tom 2', midi: 52, trim: 0.9 },
+  { id: 'tom1', label: 'Tom 1', midi: 53, trim: 1.06 },
+  { id: 'ride', label: 'Ride', midi: 54, trim: 2.3 },
+  { id: 'crash', label: 'Prato de ataque', midi: 55, trim: 0.9 },
+].map((piece) => Object.freeze(piece)));
+export const DRUM_LOWEST_MIDI = DRUM_PIECES[0].midi;
+export const DRUM_HIGHEST_MIDI = DRUM_PIECES[DRUM_PIECES.length - 1].midi;
 
 export const STORAGE_KEY = 'beat-productor:projeto:v1';

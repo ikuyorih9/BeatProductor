@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { HIGHEST_MIDI, LOWEST_MIDI, OCTAVES } from '../js/config.js';
 import {
-  buildRange, drumPieceForMidi, isBlackKey, midiToFrequency, midiToName, nameToMidi, pitchClass,
+  buildRange, isBlackKey, midiToFrequency, midiToName, nameToMidi, pitchClass,
 } from '../js/core/music.js';
 
 test('midiToName / nameToMidi são inversas na faixa MIDI', () => {
@@ -40,11 +40,3 @@ test('faixa de 3 oitavas, da mais aguda para a mais grave', () => {
   assert.equal(midiToName(range.at(-1)), 'C3');
 });
 
-test('mapeamento da bateria por classe de altura % 4', () => {
-  assert.equal(drumPieceForMidi(60).id, 'kick'); // C
-  assert.equal(drumPieceForMidi(61).id, 'snare'); // C#
-  assert.equal(drumPieceForMidi(62).id, 'hihat_closed'); // D
-  assert.equal(drumPieceForMidi(63).id, 'hihat_open'); // D#
-  assert.equal(drumPieceForMidi(64).id, 'kick'); // E
-  assert.equal(drumPieceForMidi(48).id, drumPieceForMidi(72).id);
-});

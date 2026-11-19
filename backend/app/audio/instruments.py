@@ -1,4 +1,4 @@
-"""Síntese dos 4 instrumentos com NumPy/SciPy.
+"""Síntese dos 4 instrumentos (a bateria com 8 peças) com NumPy/SciPy.
 
 Cada função devolve um array mono ``float32`` com a nota completa,
 incluindo a cauda (release). Os parâmetros espelham
@@ -119,18 +119,23 @@ def _exp_decay(t: np.ndarray, start_level: float, seconds_to_silence: float) -> 
     return start_level * (0.001 / start_level) ** np.minimum(t / seconds_to_silence, 1.0)
 
 
-@lru_cache(maxsize=8)
+@lru_cache(maxsize=16)
 def _noise(n: int, seed: int) -> np.ndarray:
     return np.random.default_rng(seed).uniform(-1.0, 1.0, n)
 
 
 def _kick(sr: int) -> np.ndarray:
+    """Seno grave (160→50 Hz) + knock médio (330→110 Hz) + estalo do pedal — o knock e o estalo
+    fazem o bumbo ser ouvido mesmo em alto-falantes pequenos, que não reproduzem 50 Hz."""
     n = int(0.47 * sr)
     t = _time(n, sr)
-    freq = np.where(t < 0.12, 150.0 * (45.0 / 150.0) ** (t / 0.12), 45.0)
-    body = np.sin(TWO_PI * _phase(freq, n, sr))
-    env = np.where(t < 0.003, 0.95 * t / 0.003, _exp_decay(np.maximum(t - 0.003, 0), 0.95, 0.447))
-    return body * env
+    freq = np.where(t < 0.12, 160.0 * (50.0 / 160.0) ** (t / 0.12), 50.0)
+    env = np.where(t < 0.003, 0.8 * t / 0.003, _exp_decay(np.maximum(t - 0.003, 0), 0.8, 0.447))
+    body = np.sin(TWO_PI * _phase(freq, n, sr)) * env
+    knock_freq = np.where(t < 0.04, 330.0 * (110.0 / 330.0) ** (t / 0.04), 110.0)
+    knock = np.sin(TWO_PI * _phase(knock_freq, n, sr)) * _exp_decay(t, 0.3, 0.12)
+    click = _filter(_noise(n, 7), "highpass", 3000.0, sr) * _exp_decay(t, 0.18, 0.02)
+    return body + knock + click
 
 
 def _snare(sr: int) -> np.ndarray:
@@ -148,17 +153,72 @@ def _hihat(sr: int, decay: float, seed: int) -> np.ndarray:
     return _filter(_noise(n, seed), "highpass", 7000.0, sr) * _exp_decay(t, 0.32, decay)
 
 
+#: Tons: queda de afinação `from`→`to` Hz em `glide` s; silencia em `decay` s (= frontend TOMS).
+TOMS = {
+    "floor_tom": {"start": 120.0, "end": 82.0, "glide": 0.2, "decay": 0.7},
+    "tom2": {"start": 165.0, "end": 118.0, "glide": 0.18, "decay": 0.55},
+    "tom1": {"start": 220.0, "end": 160.0, "glide": 0.16, "decay": 0.45},
+}
+
+
+def _tom(sr: int, start: float, end: float, glide: float, decay: float, seed: int) -> np.ndarray:
+    n = int((decay + 0.02) * sr)
+    t = _time(n, sr)
+    freq = np.where(t < glide, start * (end / start) ** (t / glide), end)
+    body_env = np.where(t < 0.002, 0.8 * t / 0.002, _exp_decay(np.maximum(t - 0.002, 0), 0.8, decay - 0.002))
+    body = np.sin(TWO_PI * _phase(freq, n, sr)) * body_env
+    stick = _filter(_noise(n, seed), "highpass", 2000.0, sr) * _exp_decay(t, 0.12, 0.05)
+    return body + stick
+
+
+#: Frequências das 6 ondas quadradas do timbre metálico dos pratos (= frontend METAL_FREQUENCIES).
+METAL_FREQUENCIES = (205.3, 304.4, 369.6, 522.7, 540.0, 800.0)
+
+#: Pratos: nível do metal, corte do metal, nível do ruído, decaimento (= frontend CYMBALS).
+CYMBALS = {
+    "ride": {"metal": 0.3, "metal_cutoff": 5000.0, "noise": 0.08, "decay": 1.6},
+    "crash": {"metal": 0.2, "metal_cutoff": 6000.0, "noise": 0.35, "decay": 1.8},
+}
+
+
+@lru_cache(maxsize=4)
+def _metal(n: int, sr: int) -> np.ndarray:
+    """Soma das ondas quadradas, com banda limitada (só harmônicos abaixo de Nyquist, como no navegador)."""
+    t = _time(n, sr)
+    out = np.zeros(n)
+    for freq in METAL_FREQUENCIES:
+        k = 1
+        while k * freq < sr / 2:
+            out += (4.0 / np.pi) * np.sin(TWO_PI * k * freq * t) / k
+            k += 2
+    out.setflags(write=False)
+    return out
+
+
+def _cymbal(sr: int, metal: float, metal_cutoff: float, noise: float, decay: float, seed: int) -> np.ndarray:
+    n = int((decay + 0.02) * sr)
+    t = _time(n, sr)
+    tone = _filter(_metal(n, sr), "highpass", metal_cutoff, sr) * (metal / len(METAL_FREQUENCIES))
+    hiss = _filter(_noise(n, seed), "highpass", 5000.0, sr) * noise
+    env = np.where(t < 0.002, t / 0.002, _exp_decay(np.maximum(t - 0.002, 0), 1.0, decay - 0.002))
+    return (tone + hiss) * env
+
+
 def drums(midi: int, duration: float, sr: int = SAMPLE_RATE) -> np.ndarray:  # noqa: ARG001 (one-shot)
-    """Bateria one-shot: a peça é escolhida pela nota; a duração é ignorada."""
+    """Bateria one-shot: cada tecla do kit (C3 a G3) é uma peça; a duração é ignorada."""
     piece = drum_piece_for_midi(midi)
     if piece == "kick":
         signal = _kick(sr)
     elif piece == "snare":
         signal = _snare(sr)
-    elif piece == "hihat_closed":
+    elif piece == "hihat":
         signal = _hihat(sr, 0.08, seed=2)
+    elif piece in TOMS:
+        signal = _tom(sr, **TOMS[piece], seed=4)
+    elif piece in CYMBALS:
+        signal = _cymbal(sr, **CYMBALS[piece], seed=5 if piece == "ride" else 6)
     else:
-        signal = _hihat(sr, 0.35, seed=3)
+        raise ValueError(f"A tecla MIDI {midi} não faz parte da bateria (use C3 a G3).")
     return _fade_tail(signal.astype(np.float32), sr)
 
 

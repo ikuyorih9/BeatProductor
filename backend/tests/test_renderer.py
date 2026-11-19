@@ -117,12 +117,20 @@ def _drum_level(note):
     return 20 * np.log10(_rms(out[: int(0.15 * SR)]))
 
 
+#: Quanto cada peça pode ficar abaixo do bumbo (dB, RMS dos primeiros 150 ms). Pratos são
+#: longos e agudos: com menos RMS no começo já soam presentes.
+DRUM_BALANCE = {
+    "C#3": ("caixa", 3), "D3": ("chimbal", 10), "D#3": ("surdo", 3), "E3": ("tom 2", 3),
+    "F3": ("tom 1", 3), "F#3": ("ride", 12), "G3": ("prato de ataque", 8),
+}
+
+
 def test_drum_pieces_are_balanced_against_the_kick():
-    """Caixa e hi-hats não ficam enterrados (antes: 8 a 16 dB abaixo do bumbo)."""
-    kick, snare, closed, opened = (_drum_level(n) for n in ("C3", "C#3", "D3", "D#3"))
-    assert kick - snare < 3, (kick, snare)
-    assert kick - closed < 10, (kick, closed)
-    assert kick - opened < 10, (kick, opened)
+    """Nenhuma peça fica enterrada nem estoura em relação ao bumbo."""
+    kick = _drum_level("C3")
+    for note, (name, max_below) in DRUM_BALANCE.items():
+        level = _drum_level(note)
+        assert -3 < kick - level < max_below, (name, kick, level)
 
 
 def test_drums_at_200_percent_are_12_db_louder_in_the_mix():

@@ -4,16 +4,19 @@
  *
  * Versões:
  *   1 — divisões nomeadas por "células por batida" ('1/2', '1/4', '1/6'), sem compasso nem volumes;
- *   2 — divisões nomeadas pela figura ('1/8', '1/16', '1/16T'…), fórmula de compasso e volumes.
- * Projetos v1 são migrados ao carregar (a mesma célula, com o nome novo).
+ *   2 — divisões nomeadas pela figura ('1/8', '1/16', '1/16T'…), fórmula de compasso e volumes;
+ *   3 — bateria com 8 peças em teclas fixas (C3 a G3) em vez de 4 peças repetidas em todas as teclas.
+ * Projetos antigos são migrados ao carregar (v1: a mesma célula, com o nome novo; v1/v2: cada
+ * nota da bateria vai para a tecla da mesma peça no kit novo).
  */
 import {
   BARS, BPM, DEFAULT_DIVISION, DEFAULT_INSTRUMENT, DEFAULT_METER, DIVISIONS, INSTRUMENT_IDS,
   LEGACY_DIVISIONS, LOOPS, METERS, VOLUME,
 } from '../config.js';
+import { migrateLegacyDrumItems } from './music.js';
 import { divisionFitsMeter, toBoundedInt } from './timing.js';
 
-export const PROJECT_VERSION = 2;
+export const PROJECT_VERSION = 3;
 
 export function defaultVolumes() {
   return Object.fromEntries(INSTRUMENT_IDS.map((id) => [id, VOLUME.DEFAULT]));
@@ -74,10 +77,12 @@ export function parseProject(text) {
   if (typeof text !== 'string' || text === '') return null;
   try {
     const data = JSON.parse(text);
-    if (!data || (data.version !== 1 && data.version !== PROJECT_VERSION)) return null;
+    if (!data || ![1, 2, PROJECT_VERSION].includes(data.version)) return null;
     const raw = data.settings && typeof data.settings === 'object' ? { ...data.settings } : {};
     if (data.version === 1) raw.division = LEGACY_DIVISIONS[raw.division];
-    return { settings: sanitizeSettings(raw), notes: Array.isArray(data.notes) ? data.notes : [] };
+    let notes = Array.isArray(data.notes) ? data.notes : [];
+    if (data.version < 3) notes = migrateLegacyDrumItems(notes);
+    return { settings: sanitizeSettings(raw), notes };
   } catch {
     return null;
   }

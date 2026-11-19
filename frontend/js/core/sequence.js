@@ -11,7 +11,7 @@
  * Assim, reduzir e depois aumentar a quantidade de compassos não perde trabalho.
  */
 import { INSTRUMENT_IDS } from '../config.js';
-import { midiToName } from './music.js';
+import { isPlayable, midiToName } from './music.js';
 import { ticksToSeconds } from './timing.js';
 
 export const KINDS = Object.freeze(['note', 'rest']);
@@ -231,7 +231,10 @@ export class Sequence {
     for (const raw of data) {
       try {
         // Projetos salvos antes das pausas não têm "kind": são notas.
-        this.addNote({ kind: 'note', ...(raw ?? {}) });
+        const item = { kind: 'note', ...(raw ?? {}) };
+        // Na bateria, tecla fora do kit não toca nem aparece: descartada.
+        if (item.instrument === 'drums' && !isPlayable('drums', item.midi)) continue;
+        this.addNote(item);
       } catch {
         // entrada corrompida: ignorada
       }

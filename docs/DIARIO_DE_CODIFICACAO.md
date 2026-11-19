@@ -441,6 +441,59 @@ colcheia (4) não dividem o compasso.
 
 ---
 
+## 2026-11-19 — Bateria com 8 peças, faixa reduzida e mais volume
+
+**Relato:**
+- as 4 peças da bateria se repetiam pelas 3 oitavas;
+- pedido de um kit com Surdo, Ride, Tom 1, Tom 2, Chimbal, Caixa, Bumbo e Prato de ataque, com as outras teclas desativadas;
+- a bateria ainda soava baixa no 100%.
+
+**Kit novo:** uma peça por tecla, de C3 a G3, embaixo do grid (bumbo, caixa, chimbal, surdo, tom 2, tom 1, ride, prato de ataque).
+- Tabela única em `config.js` (`DRUM_PIECES`, com a calibração de cada peça) e espelho em `music.py` (`DRUM_KIT`).
+  Um teste pytest lê o `config.js` e falha se as duas divergirem.
+- **Síntese nova, igual nos dois motores:**
+  - tons e surdo: seno com queda de afinação, mais o estalo da baqueta;
+  - ride e prato de ataque: 6 ondas quadradas desafinadas (timbre metálico, estilo TR-808) mais ruído agudo;
+  - no Python, as quadradas são somadas só com harmônicos abaixo de Nyquist, como o oscilador do navegador.
+- O buffer de ruído do navegador passou de 1 s para 2 s, para cobrir a cauda do prato.
+
+**Teclas desativadas:**
+- teclas e linhas fora do kit ficam riscadas e não tocam;
+- desenhar, criar pausa e arrastar ali não fazem nada;
+- mover a seleção (arrastando ou com as setas) para no limite do kit (`clampMove` ganhou `minRow`/`maxRow`);
+- colar na bateria descarta, com aviso, o que cair fora do kit;
+- ao escolher a bateria, o grid rola até o kit;
+- o servidor recusa com 422 uma nota de bateria fora do kit, com mensagem clara.
+
+**Projetos antigos:** são migrados sem perder o ritmo.
+- Projeto salvo no navegador: v2 → v3. Arquivo de texto: `versao = 1` → `2`. Arquivo sem `versao` é lido como atual.
+- Cada nota vai para a tecla da mesma peça; o hi-hat aberto vira chimbal.
+- Peças que caem na mesma tecla não se sobrepõem: a anterior é encurtada e as simultâneas viram uma só.
+- Nomes novos no arquivo de texto: `surdo`, `tom-1`, `tom-2`, `ride`, `ataque`… Os antigos continuam valendo.
+
+**Volume:**
+- **Diagnóstico:** o bumbo terminava em 45 Hz, e alto-falante de notebook/celular praticamente não reproduz essa faixa.
+  Golpes curtos também soam mais baixos que notas sustentadas de mesmo RMS.
+- **Bumbo:** ganhou um "knock" de 330→110 Hz e o estalo do pedal. Acima de 150 Hz, onde caixas pequenas tocam, ficou **+5 dB**.
+- **Barramento da bateria:** +6 dB no navegador (o limitador segura os picos) e +3,4 dB no servidor (que normaliza o pico do arquivo).
+- **Medido na cadeia real do navegador, com um beat de bumbo, caixa e chimbal:**
+  - 100% ficou **+3,3 dB** mais alto que antes e passou o piano (−15,2 contra −16,3 dBFS RMS);
+  - 200% também ficou mais alto que o 200% antigo;
+  - nunca passa de 0 dBFS.
+- **Custo:** como o 100% agora chega perto do limitador, o ganho do 200% sobre o 100% caiu de ~5,6 para ~4,4 dB RMS.
+  O teste E2E passou a exigir > 3,5 dB nesse reforço (antes > 6) e > 7 dB na atenuação do 50% (antes > 9).
+  Também passou a exigir que a bateria no 100% não fique abaixo do piano.
+- **Equilíbrio das peças em relação ao bumbo** (RMS dos primeiros 150 ms, iguais nos dois motores):
+  - caixa ≈ −1,7 dB, tons ≈ −1 dB, chimbal ≈ −8 dB;
+  - ride ≈ −9 dB, prato de ataque ≈ −5 dB.
+
+**Verificação:**
+- 124 pytest, incluindo as 8 peças: audíveis, sem estouro, terminando em silêncio, diferentes entre si, com equilíbrio, mais o 422;
+- 99 `node:test`, incluindo as migrações v1/v2, os nomes das peças, o erro fora do kit e o limite do arraste;
+- 42 E2E em Chrome headless, incluindo teclas desativadas, rolagem até o kit, limite das setas/arraste e o equilíbrio na cadeia real.
+
+---
+
 ## Resumo final
 
 | Requisito | Onde |
@@ -456,4 +509,4 @@ colcheia (4) não dividem o compasso.
 | RNF02 Sem build/dependências pesadas | Vanilla JS em ES Modules + Tailwind via CDN, zero pacotes npm |
 | RNF03 MP3 limpo, sem cortes no loop | overlap-add, normalização −1 dBFS, fades de borda |
 
-**Totais:** 100 testes pytest · 90 testes `node:test` · 41 verificações E2E em navegador real.
+**Totais:** 124 testes pytest · 99 testes `node:test` · 42 verificações E2E em navegador real.
