@@ -260,19 +260,95 @@ def drums(midi: int, duration: float, sr: int = SAMPLE_RATE) -> np.ndarray:  # n
 #: O baixo soa uma oitava abaixo da nota escrita (como na partitura de baixo): C3 = C2, 65 Hz.
 BASS_TRANSPOSE = -12
 
+#: Parâmetros da corda (= frontend BASS_STRING). Ver `bass` abaixo.
+BASS_STRING = {
+    "pluck_position": 0.22,   # onde o dedo puxa a corda (fração do comprimento, a partir do cavalete)
+    "finger_noise": 0.15,     # parte "ruído" da excitação (atrito do dedo), o resto é o formato da corda puxada
+    "damping": 0.2,           # perda nos agudos a cada ida e volta na corda (0 = brilhante … 0,25 = abafado)
+    "t60_low": 5.0,           # segundos até -60 dB na nota mais grave (C2)…
+    "t60_min": 2.2,           # …e o mínimo, nas agudas (cordas agudas sustentam menos)
+    "tone_hz": 1400.0,        # captador + amplificador: passa-baixa de 1ª ordem
+    "attack": 0.002,          # ataque do dedo (evita estalo)
+    "release": 0.1,           # abafar a corda com a mão ao fim da nota
+    "peak": 0.5,
+}
+
+
+def _xorshift_noise(n: int, seed: int) -> np.ndarray:
+    """Ruído determinístico (xorshift32) — o MESMO gerador do navegador, para os dois soarem iguais."""
+    mask = 0xFFFFFFFF
+    state = seed & mask or 1
+    out = np.empty(n)
+    for i in range(n):
+        state ^= (state << 13) & mask
+        state ^= state >> 17
+        state ^= (state << 5) & mask
+        out[i] = state / 4294967296.0 * 2.0 - 1.0
+    return out
+
+
+def _one_pole(signal: np.ndarray, b: list[float], a: list[float]) -> np.ndarray:
+    from scipy.signal import lfilter
+
+    return lfilter(b, a, signal)
+
 
 def bass(midi: int, duration: float, sr: int = SAMPLE_RATE) -> np.ndarray:
-    """Baixo elétrico: seno na fundamental + dente-de-serra, passa-baixa e envelope de corda pinçada."""
+    """Baixo elétrico de 4 cordas por MODELAGEM FÍSICA (Karplus-Strong estendido).
+
+    Uma "corda" digital: uma linha de atraso do tamanho de um período, realimentada com uma pequena
+    perda (mais forte nos agudos). Puxar a corda = encher a linha com o formato da corda deslocada pelo
+    dedo (triângulo com o vértice em `pluck_position`) mais um pouco de ruído (o atrito do dedo).
+    Os harmônicos nascem e morrem como numa corda real: o ataque é brilhante e o som vai ficando
+    redondo; as notas graves sustentam mais. Espelha frontend/js/audio/instruments.js (mesma conta).
+    """
+    p = BASS_STRING
     freq = midi_to_frequency(midi + BASS_TRANSPOSE)
-    release = 0.08
-    n = int((max(duration, 0.005) + release * 1.5) * sr)
-    phase = _phase(freq, n, sr)
-    # A dente-de-serra do navegador começa no zero subindo (meio ciclo à frente da PolyBLEP): com a
-    # mesma fase, a fundamental dela soma com a do seno, como no navegador (com a fase oposta, cancelaria).
-    signal = 0.6 * np.sin(TWO_PI * phase) + 0.4 * _saw_polyblep(phase + 0.5, freq, sr)
-    signal = _filter(signal, "lowpass", 900.0, sr)
-    env = adsr(n, sr, duration=duration, attack=0.005, decay=0.4, sustain=0.55, release=release, peak=0.5)
-    return _fade_tail((signal * env).astype(np.float32), sr)
+    release = p["release"]
+    n = max(1, int(round((max(duration, 0.005) + release * 1.5) * sr)))
+
+    # Atraso total da malha = período. Filtro de perda [a, 1-2a, a] (atraso 1) + interpolação linear
+    # [1-w, w] para a parte fracionária (afinação exata).
+    period = sr / freq
+    whole = int(np.floor(period - 1.0))
+    frac = period - 1.0 - whole
+    a = p["damping"]
+    loss = np.array([a, 1.0 - 2.0 * a, a])
+    kernel = np.convolve([1.0 - frac, frac], loss)  # 4 coeficientes, atrasos whole … whole+3
+    t60 = max(p["t60_min"], p["t60_low"] * np.sqrt(midi_to_frequency(36) / freq))
+    gain = 10.0 ** (-3.0 * period / (t60 * sr))
+
+    # Excitação: corda puxada pelo dedo.
+    x = (np.arange(whole) + 0.5) / whole
+    beta = p["pluck_position"]
+    shape = np.where(x < beta, x / beta, (1.0 - x) / (1.0 - beta))
+    noise = _xorshift_noise(whole, 0x9E3779B9 ^ midi)
+    excitation = (1.0 - p["finger_noise"]) * shape + p["finger_noise"] * noise
+    excitation -= excitation.mean()
+    excitation /= np.max(np.abs(excitation))
+
+    pad = whole + 3
+    y = np.zeros(pad + n)
+    y[pad:pad + min(whole, n)] = excitation[:n]
+    # Cada bloco de `whole` amostras só depende de amostras de pelo menos `whole` atrás: vetorizável.
+    for s0 in range(pad, pad + n, whole):
+        s1 = min(s0 + whole, pad + n)
+        feedback = (kernel[0] * y[s0 - whole:s1 - whole] + kernel[1] * y[s0 - whole - 1:s1 - whole - 1]
+                    + kernel[2] * y[s0 - whole - 2:s1 - whole - 2] + kernel[3] * y[s0 - whole - 3:s1 - whole - 3])
+        y[s0:s1] += gain * feedback
+    string = y[pad:]
+
+    # Captador/amplificador: passa-baixa de 1ª ordem + bloqueio de DC.
+    c = 1.0 - np.exp(-TWO_PI * p["tone_hz"] / sr)
+    out = _one_pole(string, [c], [1.0, -(1.0 - c)])
+    out = _one_pole(out, [1.0, -1.0], [1.0, -0.995])
+
+    # Envelope: ataque do dedo, sustentação natural da corda, abafada ao fim da nota.
+    t = np.arange(n) / sr
+    env = np.minimum(1.0, t / p["attack"]) * p["peak"]
+    released = t >= duration
+    env[released] *= np.exp(-(t[released] - duration) / (release / 4.0))
+    return _fade_tail((out * env).astype(np.float32), sr)
 
 
 # --------------------------------------------------------------------------- lofi synth

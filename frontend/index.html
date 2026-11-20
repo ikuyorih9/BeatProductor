@@ -13,7 +13,7 @@
   <div id="app" class="flex h-screen flex-col">
 
     <!-- ===================== CABEÇALHO: a música ===================== -->
-    <header class="flex flex-wrap items-end gap-x-3 gap-y-3 border-b border-slate-800 bg-slate-900 px-4 py-3">
+    <header class="flex flex-wrap items-end gap-x-2 gap-y-3 border-b border-slate-800 bg-slate-900 px-4 py-3">
       <h1 class="mr-1 self-center text-lg font-bold tracking-widest text-sky-400">BEAT&nbsp;PRODUCTOR</h1>
 
       <label class="control">
@@ -55,7 +55,14 @@
       <div class="ml-auto flex items-end gap-2">
         <button id="import-button" type="button" class="btn btn-secondary" title="Abrir um arquivo de projeto (.txt) — substitui o projeto atual">Importar</button>
         <button id="export-project-button" type="button" class="btn btn-secondary" title="Baixar o projeto como arquivo de texto (editável e reimportável)">Exportar projeto</button>
-        <button id="export-button" type="button" class="btn btn-primary" title="Gerar e baixar o MP3 da sequência">Exportar MP3</button>
+        <div id="export-group" class="export-group">
+          <button id="export-button" type="button" class="btn btn-primary export-main" title="Gerar e baixar o MP3 da sequência">Exportar MP3</button>
+          <button id="export-menu-button" type="button" class="btn btn-primary export-caret" title="Outros formatos (WAV)" aria-label="Outros formatos de exportação" aria-haspopup="menu" aria-expanded="false" aria-controls="export-menu">▾</button>
+          <div id="export-menu" class="export-menu" role="menu" hidden>
+            <button type="button" class="export-option" role="menuitem" data-format="mp3">Exportar como MP3<span>arquivo menor</span></button>
+            <button type="button" class="export-option" role="menuitem" data-format="wav">Exportar como WAV<span>sem compressão, qualidade máxima</span></button>
+          </div>
+        </div>
         <input id="import-file" type="file" accept=".txt,.beat,text/plain" class="hidden" aria-hidden="true" tabindex="-1">
       </div>
     </header>
@@ -129,7 +136,7 @@
     // se ainda assim falhar, mostra o que fazer em vez de deixar a tela sem resposta. Também cobre o
     // navegador rodando a versão antiga inteira do cache (o número de versão não bate).
     (function () {
-      var APP_BUILD = 6; // = APP_BUILD de js/config.js
+      var APP_BUILD = 7; // = APP_BUILD de js/config.js
       var KEY = 'beat-productor:recarregou';
       var failed = false;
       function started() { return !!window.__beatProductor && window.__beatProductor.build === APP_BUILD; }

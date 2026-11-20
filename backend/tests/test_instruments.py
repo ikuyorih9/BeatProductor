@@ -100,3 +100,34 @@ def test_bass_sounds_one_octave_below_the_written_note():
     spectrum = np.abs(np.fft.rfft(voice * np.hanning(len(voice))))
     peak_hz = np.argmax(spectrum) * SAMPLE_RATE / len(voice)
     assert abs(peak_hz - 65.4) < 2.0, peak_hz
+
+
+#: Valores de referência — os MESMOS em frontend/tests/bass.test.js e backend/tests/test_instruments.py:
+#: navegador e servidor fazem a mesma conta, então as amostras têm de bater.
+BASS_REFERENCE = {
+    (60, 0.5): ((100, 0.298473), (1000, -0.261425), (5000, -0.205505), (20000, 0.118609), 28665),
+    (48, 0.25): ((37, -0.079284), (777, 0.252988), (4444, -0.047199), (12000, -0.060329), 17640),
+}
+
+
+@pytest.mark.parametrize("key", list(BASS_REFERENCE))
+def test_bass_string_matches_the_browser_sample_by_sample(key):
+    midi, duration = key
+    *samples, length = BASS_REFERENCE[key]
+    voice = render_note("bass", midi, duration)
+    assert len(voice) == length
+    for index, value in samples:
+        assert float(voice[index]) == pytest.approx(value, abs=2e-6), index
+
+
+def test_bass_string_rings_bright_then_rounds_off_like_a_real_string():
+    """Corda dedilhada: o ataque tem harmônicos agudos que morrem antes da fundamental."""
+    voice = render_note("bass", 48, 2.0).astype(np.float64)
+
+    def centroid(start, end):
+        part = voice[int(start * SAMPLE_RATE):int(end * SAMPLE_RATE)]
+        spectrum = np.abs(np.fft.rfft(part * np.hanning(len(part))))
+        freqs = np.fft.rfftfreq(len(part), 1 / SAMPLE_RATE)
+        return float((spectrum * freqs).sum() / spectrum.sum())
+
+    assert centroid(0.0, 0.1) > 3 * centroid(1.0, 1.1)

@@ -12,7 +12,7 @@
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind%20CSS-06B6D4?logo=tailwindcss&logoColor=white">
   <img alt="HTML5" src="https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white">
   <br>
-  <img alt="Testes" src="https://img.shields.io/badge/testes-320%20passando-22c55e">
+  <img alt="Testes" src="https://img.shields.io/badge/testes-326%20passando-22c55e">
   <img alt="Lançador Windows" src="https://img.shields.io/badge/Windows-BeatProductor.exe-0078D6?logo=windows&logoColor=white">
   <img alt="Licença MIT" src="https://img.shields.io/badge/licen%C3%A7a-MIT-blue">
   <img alt="Idioma" src="https://img.shields.io/badge/idioma-pt--BR-009c3b">
@@ -34,7 +34,7 @@ O **Beat Productor** é um aplicativo web para **montar beats e melodias rapidam
 *piano roll*. Cada linha é uma nota (3 oitavas, de C3 a B5) e cada coluna é um pedaço de tempo. Você clica para
 criar notas, ouve na hora pelo navegador e exporta o resultado em **MP3**.
 
-- **5 instrumentos sintetizados:** Piano Acústico, Bateria (17 peças: bumbo, caixa, chimbal, surdo, tom 1, tom 2, ride, prato de ataque, splash, china, stack, bell, octobans, rototons, cowbell, jam block e pandeirola), Baixo (soa uma oitava abaixo do escrito, como na partitura), Lofi Synth e Lead Synth.
+- **5 instrumentos sintetizados:** Piano Acústico, Bateria (17 peças: bumbo, caixa, chimbal, surdo, tom 1, tom 2, ride, prato de ataque, splash, china, stack, bell, octobans, rototons, cowbell, jam block e pandeirola), Baixo de 4 cordas por modelagem física de corda (soa uma oitava abaixo do escrito, como na partitura), Lofi Synth e Lead Synth.
 - **Pensado para quem lê partitura:** fórmula de compasso (2/4 a 12/8), células com o nome da figura
   (semínima, colcheia, semicolcheia, tercinas) e BPM em semínimas, como no metrônomo.
 - **Edição completa:**
@@ -101,7 +101,7 @@ Abra **http://127.0.0.1:8000**. Na primeira execução o script cria o `.venv` e
 
 1. Escolha um **Instrumento** e clique no grid para criar notas. Arraste para fazer notas longas.
 2. Aperte **▶ PLAY** (ou **Espaço**).
-3. Marque **Loop**, escolha quantas repetições e clique em **Exportar MP3**.
+3. Marque **Loop**, escolha quantas repetições e clique em **Exportar MP3** (ou na seta ▾ → **Exportar como WAV**).
 
 O passo a passo completo está no [Manual de uso](docs/MANUAL_DE_USO.md).
 
@@ -113,9 +113,9 @@ powershell -ExecutionPolicy Bypass -File scripts\test.ps1   # ou: scripts/test.s
 
 | Suíte | Quantidade |
 |---|---|
-| Backend (pytest) | 165 testes |
-| Frontend (`node:test`) | 110 testes |
-| E2E (Chrome/Edge headless) | 45 verificações |
+| Backend (pytest) | 168 testes |
+| Frontend (`node:test`) | 112 testes |
+| E2E (Chrome/Edge headless) | 46 verificações |
 
 O E2E abre o app num navegador real e testa com cliques, arrastes e teclas de verdade. Ele confere também o
 áudio sintetizado (equilíbrio, ausência de distorção) e uma exportação MP3 completa.

@@ -127,7 +127,7 @@ function undoRedo(direction) {
 
 // ---------------------------------------------------------------- componentes
 const header = initHeader(store, {
-  onExport: () => exportSequence(),
+  onExport: (format) => exportSequence(format),
   onExportProject: () => exportProjectFile(),
   onImportProject: (file) => importProjectFile(file),
   onMerge: () => mergeSelection(),
@@ -503,20 +503,20 @@ async function importProjectFile(file) {
 }
 
 let exporting = false;
-async function exportSequence() {
+async function exportSequence(format = 'mp3') {
   if (exporting) return;
-  const result = buildExportPayload(sequence, store.get(), 'mp3');
+  const result = buildExportPayload(sequence, store.get(), format);
   if (!result.ok) {
     showToast(result.error, 'error');
     return;
   }
   exporting = true;
-  header.setExporting(true);
+  header.setExporting(true, format);
   try {
     const { blob, filename } = await requestExport(result.payload);
     downloadBlob(blob, filename);
     const reps = result.payload.loop ? ` (${result.payload.loops} loops)` : '';
-    showToast(`MP3 gerado${reps}: ${filename}`, 'success');
+    showToast(`${format.toUpperCase()} gerado${reps}: ${filename}`, 'success');
   } catch (error) {
     showToast(`Falha na exportação: ${error.message}`, 'error');
   } finally {

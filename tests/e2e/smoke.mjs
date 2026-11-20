@@ -908,6 +908,40 @@ if (testExport) {
     await setControl('loop-checkbox', false);
   });
 
+  await check('a seta do Exportar abre o menu; "Exportar como WAV" baixa um WAV válido', async () => {
+    assert.equal(await evaluate('document.getElementById("export-button").textContent'), 'Exportar MP3');
+    assert.equal(await evaluate('document.getElementById("export-menu").hidden'), true);
+    await clickElement('#export-menu-button');
+    await waitFor('!document.getElementById("export-menu").hidden', 2000, 'menu aberto');
+    assert.equal(await evaluate('document.getElementById("export-menu-button").getAttribute("aria-expanded")'), 'true');
+    const options = await evaluate('[...document.querySelectorAll("#export-menu [data-format]")].map(b => b.dataset.format)');
+    assert.deepEqual(options, ['mp3', 'wav']);
+    // Clicar fora fecha o menu sem exportar.
+    await clickElement('header h1'); // fora do menu
+    await waitFor('document.getElementById("export-menu").hidden', 2000, 'menu fechou ao clicar fora');
+
+    await clickElement('#export-menu-button');
+    await waitFor('!document.getElementById("export-menu").hidden', 2000, 'menu aberto de novo');
+    await clickElement('#export-menu [data-format="wav"]');
+    await waitFor('document.getElementById("export-menu").hidden', 2000, 'menu fecha ao escolher');
+    const deadline = Date.now() + 30000;
+    let file = null;
+    while (Date.now() < deadline && !file) {
+      file = readdirSync(downloadDir).find((name) => name.endsWith('.wav'));
+      await sleep(200);
+    }
+    assert.ok(file, 'nenhum .wav baixado');
+    const path = join(downloadDir, file);
+    await sleep(300);
+    const bytes = readFileSync(path);
+    assert.equal(bytes.subarray(0, 4).toString('latin1'), 'RIFF', 'cabeçalho WAV inválido');
+    assert.equal(bytes.subarray(8, 12).toString('latin1'), 'WAVE', 'cabeçalho WAV inválido');
+    assert.ok(bytes.length > 10000, 'arquivo muito pequeno');
+    await waitFor('document.querySelector(".toast-success")?.textContent.includes("WAV gerado")', 3000, 'mensagem de sucesso do WAV');
+    await waitFor('!document.getElementById("export-button").disabled', 3000, 'botão reabilitado');
+    assert.equal(await evaluate('document.getElementById("export-button").textContent'), 'Exportar MP3');
+  });
+
   await check('exportar sem notas mostra erro amigável (sem chamar o servidor)', async () => {
     await evaluate('window.__beatProductor.sequence.clear()');
     await clickElement('#export-button');

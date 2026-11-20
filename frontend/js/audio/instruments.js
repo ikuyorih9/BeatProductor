@@ -274,32 +274,130 @@ export function drums(ctx, { midi, when }, { noiseBuffer }) {
 /** O baixo soa uma oitava abaixo da nota escrita (como na partitura de baixo): C3 no grid = C2, 65 Hz. */
 export const BASS_TRANSPOSE = -12;
 
+/** Parâmetros da corda (= backend BASS_STRING). Ver `renderBassString`. */
+export const BASS_STRING = Object.freeze({
+  pluckPosition: 0.22, // onde o dedo puxa a corda (fração do comprimento, a partir do cavalete)
+  fingerNoise: 0.15, // parte "ruído" da excitação (atrito do dedo); o resto é o formato da corda puxada
+  damping: 0.2, // perda nos agudos a cada ida e volta na corda (0 = brilhante … 0,25 = abafado)
+  t60Low: 5.0, // segundos até -60 dB na nota mais grave (C2)…
+  t60Min: 2.2, // …e o mínimo, nas agudas (cordas agudas sustentam menos)
+  toneHz: 1400, // captador + amplificador: passa-baixa de 1ª ordem
+  attack: 0.002, // ataque do dedo (evita estalo)
+  release: 0.1, // abafar a corda com a mão ao fim da nota
+  peak: 0.5,
+});
+
+/** Ruído determinístico (xorshift32) — o MESMO gerador do servidor, para os dois soarem iguais. */
+function xorshiftNoise(n, seed) {
+  let state = (seed >>> 0) || 1;
+  const out = new Float64Array(n);
+  for (let i = 0; i < n; i += 1) {
+    state = (state ^ (state << 13)) >>> 0;
+    state = (state ^ (state >>> 17)) >>> 0;
+    state = (state ^ (state << 5)) >>> 0;
+    out[i] = (state / 4294967296) * 2 - 1;
+  }
+  return out;
+}
+
 /**
- * Baixo elétrico (dedilhado): seno na fundamental (o peso) + dente-de-serra (os harmônicos que fazem
- * o baixo ser ouvido em alto-falantes pequenos), passa-baixa e envelope de corda pinçada.
+ * Baixo elétrico de 4 cordas por MODELAGEM FÍSICA (Karplus-Strong estendido): uma "corda" digital —
+ * linha de atraso do tamanho de um período, realimentada com uma pequena perda (maior nos agudos).
+ * Puxar a corda = encher a linha com o formato da corda deslocada pelo dedo (triângulo com vértice em
+ * `pluckPosition`) + um pouco de ruído (atrito do dedo). Os harmônicos nascem e morrem como numa corda
+ * real: ataque brilhante que vai arredondando; graves sustentam mais.
+ * É a MESMA conta de backend/app/audio/instruments.py (`bass`), amostra por amostra.
+ * @returns {Float32Array} a nota inteira (com o abafamento no fim)
  */
-export function bass(ctx, { midi, when, duration }) {
+export function renderBassString(midi, duration, sampleRate) {
+  const p = BASS_STRING;
   const frequency = midiToFrequency(midi + BASS_TRANSPOSE);
+  const n = Math.max(1, Math.round((Math.max(duration, 0.005) + p.release * 1.5) * sampleRate));
+
+  // Atraso total da malha = período: filtro de perda [a, 1-2a, a] (atraso 1) + interpolação linear
+  // [1-w, w] da parte fracionária (afinação exata).
+  const period = sampleRate / frequency;
+  const whole = Math.floor(period - 1);
+  const frac = period - 1 - whole;
+  const a = p.damping;
+  const loss = [a, 1 - 2 * a, a];
+  const k = [0, 0, 0, 0];
+  for (let i = 0; i < 2; i += 1) for (let j = 0; j < 3; j += 1) k[i + j] += (i === 0 ? 1 - frac : frac) * loss[j];
+  const t60 = Math.max(p.t60Min, p.t60Low * Math.sqrt(midiToFrequency(36) / frequency));
+  const gain = 10 ** ((-3 * period) / (t60 * sampleRate));
+
+  // Excitação: corda puxada pelo dedo.
+  const beta = p.pluckPosition;
+  const noise = xorshiftNoise(whole, 0x9e3779b9 ^ midi);
+  const excitation = new Float64Array(whole);
+  let mean = 0;
+  for (let i = 0; i < whole; i += 1) {
+    const x = (i + 0.5) / whole;
+    const shape = x < beta ? x / beta : (1 - x) / (1 - beta);
+    excitation[i] = (1 - p.fingerNoise) * shape + p.fingerNoise * noise[i];
+    mean += excitation[i];
+  }
+  mean /= whole;
+  let max = 0;
+  for (let i = 0; i < whole; i += 1) {
+    excitation[i] -= mean;
+    max = Math.max(max, Math.abs(excitation[i]));
+  }
+
+  const y = new Float64Array(n);
+  const at = (i) => (i >= 0 ? y[i] : 0);
+  for (let i = 0; i < n; i += 1) {
+    const input = i < whole ? excitation[i] / max : 0;
+    const j = i - whole;
+    y[i] = input + gain * (k[0] * at(j) + k[1] * at(j - 1) + k[2] * at(j - 2) + k[3] * at(j - 3));
+  }
+
+  // Captador/amplificador (passa-baixa de 1ª ordem + bloqueio de DC) e envelope: ataque do dedo,
+  // sustentação natural da corda, abafada ao fim da nota; fade de 5 ms no fim (sem estalo).
+  const c = 1 - Math.exp((-2 * Math.PI * p.toneHz) / sampleRate);
+  const out = new Float32Array(n);
+  let low = 0;
+  let previousLow = 0;
+  let dc = 0;
+  const fade = Math.min(n, Math.max(1, Math.trunc(0.005 * sampleRate)));
+  for (let i = 0; i < n; i += 1) {
+    low = c * y[i] + (1 - c) * low;
+    dc = low - previousLow + 0.995 * dc;
+    previousLow = low;
+    const t = i / sampleRate;
+    let env = Math.min(1, t / p.attack) * p.peak;
+    if (t >= duration) env *= Math.exp(-(t - duration) / (p.release / 4));
+    if (i >= n - fade) env *= fade === 1 ? 0 : 1 - (i - (n - fade)) / (fade - 1);
+    out[i] = dc * env;
+  }
+  return out;
+}
+
+/** Notas de baixo já calculadas (a mesma nota repetida não é recalculada). */
+const bassCache = new Map();
+const BASS_CACHE_LIMIT = 96;
+
+function bassSamples(midi, duration, sampleRate) {
+  const key = `${sampleRate}|${midi}|${Math.round(duration * 1000)}`;
+  let samples = bassCache.get(key);
+  if (!samples) {
+    samples = renderBassString(midi, Math.round(duration * 1000) / 1000, sampleRate);
+    if (bassCache.size >= BASS_CACHE_LIMIT) bassCache.delete(bassCache.keys().next().value);
+    bassCache.set(key, samples);
+  }
+  return samples;
+}
+
+/** Baixo de 4 cordas: a onda vem de `renderBassString` e toca como um buffer. */
+export function bass(ctx, { midi, when, duration }) {
+  const samples = bassSamples(midi, duration, ctx.sampleRate);
+  const buffer = ctx.createBuffer(1, samples.length, ctx.sampleRate);
+  buffer.copyToChannel(samples, 0);
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
   const output = ctx.createGain();
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.value = 900;
-  filter.Q.value = Math.SQRT1_2; // Butterworth, igual ao servidor
-  filter.connect(output);
-
-  const body = oscillator(ctx, 'sine', frequency);
-  const edge = oscillator(ctx, 'sawtooth', frequency);
-  const bodyGain = ctx.createGain();
-  const edgeGain = ctx.createGain();
-  bodyGain.gain.value = 0.6;
-  edgeGain.gain.value = 0.4;
-  body.connect(bodyGain).connect(filter);
-  edge.connect(edgeGain).connect(filter);
-
-  const endTime = applyAdsr(output.gain, {
-    start: when, end: when + duration, attack: 0.005, decay: 0.4, sustain: 0.55, release: 0.08, peak: 0.5,
-  });
-  return { output, sources: [body, edge], endTime };
+  source.connect(output);
+  return { output, sources: [source], endTime: when + samples.length / ctx.sampleRate };
 }
 
 // ------------------------------------------------------------------ Lofi Synth

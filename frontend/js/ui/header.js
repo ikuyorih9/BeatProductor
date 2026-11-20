@@ -85,6 +85,8 @@ export function initHeader(store, actions) {
   const loopCheckbox = byId('loop-checkbox');
   const loopsInput = byId('loops-input');
   const exportButton = byId('export-button');
+  const exportMenuButton = byId('export-menu-button');
+  const exportMenu = byId('export-menu');
   const exportProjectButton = byId('export-project-button');
   const importButton = byId('import-button');
   const importFile = byId('import-file');
@@ -124,7 +126,35 @@ export function initHeader(store, actions) {
   bindNumberInput(barsInput, store, 'bars', BARS);
   bindNumberInput(loopsInput, store, 'loops', LOOPS);
 
-  exportButton.addEventListener('click', () => actions.onExport());
+  // Exportar: o botão principal gera MP3 (como sempre); a seta abre o menu com MP3 e WAV.
+  exportButton.addEventListener('click', () => actions.onExport('mp3'));
+  const setMenuOpen = (open) => {
+    exportMenu.hidden = !open;
+    exportMenuButton.setAttribute('aria-expanded', String(open));
+    if (open) exportMenu.querySelector('[role=menuitem]').focus();
+  };
+  exportMenuButton.addEventListener('click', () => setMenuOpen(exportMenu.hidden));
+  exportMenu.addEventListener('click', (event) => {
+    const option = event.target.closest('[data-format]');
+    if (!option) return;
+    setMenuOpen(false);
+    actions.onExport(option.dataset.format);
+  });
+  document.addEventListener('pointerdown', (event) => {
+    if (!exportMenu.hidden && !event.target.closest('#export-group')) setMenuOpen(false);
+  });
+  exportMenu.addEventListener('keydown', (event) => {
+    const items = [...exportMenu.querySelectorAll('[role=menuitem]')];
+    const index = items.indexOf(document.activeElement);
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      setMenuOpen(false);
+      exportMenuButton.focus();
+    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      items[(index + (event.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
+    }
+  });
   exportProjectButton.addEventListener('click', () => actions.onExportProject());
   importButton.addEventListener('click', () => importFile.click());
   importFile.addEventListener('change', () => {
@@ -183,9 +213,10 @@ export function initHeader(store, actions) {
       deleteButton.disabled = selected === 0;
       deleteButton.classList.toggle('btn-danger-ready', selected > 0);
     },
-    setExporting(busy) {
+    setExporting(busy, format = 'mp3') {
       exportButton.disabled = busy;
-      exportButton.textContent = busy ? 'Gerando…' : 'Exportar MP3';
+      exportMenuButton.disabled = busy;
+      exportButton.textContent = busy ? `Gerando ${format.toUpperCase()}…` : 'Exportar MP3';
     },
   };
 }

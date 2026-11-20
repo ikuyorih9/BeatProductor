@@ -651,6 +651,40 @@ colcheia (4) não dividem o compasso.
 
 ---
 
+## 2026-11-19 — Baixo de corda (modelagem física) e exportar em WAV
+
+**Pedido:**
+1. "Baixo muito sintético; quero um baixo de corda, exatamente como o instrumento de 4 cordas."
+2. Manter o botão Exportar como está, mas transformá-lo num seletor com a 2ª opção "Exportar como WAV".
+
+**Baixo por modelagem física (Karplus-Strong estendido):**
+- Em vez de osciladores, uma **corda simulada**: uma linha de atraso do tamanho de um período, realimentada com perda.
+- A perda é um filtro `[a, 1−2a, a]` (mais forte nos agudos) com **interpolação linear** da parte fracionária do período. Afinação medida: erro < 1 cent em toda a faixa.
+- **Excitação = o dedo puxando a corda:** o formato triangular da corda deslocada, com o vértice em 22% do comprimento a partir do cavalete, mais 15% de ruído para o atrito do dedo.
+- O decaimento depende da nota (T60 de 5 s no C2, mínimo 2,2 s nos agudos).
+- Depois, captador/amplificador (passa-baixa de 1ª ordem em 1,4 kHz e bloqueio de DC) e "abafar com a mão" ao fim da nota (release de 0,1 s).
+- **Resultado medido:** o brilho do ataque (centroide ~1,4 kHz) cai para ~240 Hz em 1 s, como uma corda real. O teste exige ataque > 3× mais brilhante que a sustentação.
+- **Mesmo algoritmo, amostra por amostra, no navegador e no servidor:**
+  - o navegador calcula a onda em JS (Float64, ~5 ms por nota, com cache) e toca como `AudioBuffer`;
+  - o ruído do dedo vem de um gerador xorshift32 determinístico, igual nos dois lados;
+  - diferença máxima medida: 6·10⁻¹¹;
+  - testes de paridade (pytest e `node:test`) conferem as **mesmas amostras de referência** nos dois lados;
+  - no servidor, a realimentação é vetorizada em blocos de um período (cada bloco só depende de amostras pelo menos um período atrás).
+- Calibração: ≈1,39 nos dois lados (RMS na média dos instrumentos melódicos).
+
+**Exportar com seletor:**
+- O botão **Exportar MP3** continua igual.
+- Uma **seta ▾** colada nele abre o menu "Exportar como MP3 / Exportar como WAV". O menu fecha ao escolher, ao clicar fora ou com Esc, e navega com ↑/↓.
+- O servidor já gerava WAV, então só o frontend mudou.
+- A seta empurrava os botões do cabeçalho para uma 2ª linha em 1384 px. O espaço entre grupos caiu de 12 para 8 px, e o cabeçalho voltou a uma linha (medido).
+
+**Testes:**
+- pytest: paridade da corda e o brilho que decai.
+- `node:test`: paridade, a nota termina em silêncio e respeita a duração.
+- E2E: menu (abre, fecha clicando fora, opções), download de um WAV válido (RIFF/WAVE), mensagem "WAV gerado" e o botão volta a "Exportar MP3".
+
+---
+
 ## Resumo final
 
 | Requisito | Onde |
@@ -666,4 +700,4 @@ colcheia (4) não dividem o compasso.
 | RNF02 Sem build/dependências pesadas | Vanilla JS em ES Modules + Tailwind via CDN, zero pacotes npm |
 | RNF03 MP3 limpo, sem cortes no loop | overlap-add, normalização −1 dBFS, fades de borda |
 
-**Totais:** 165 testes pytest · 110 testes `node:test` · 45 verificações E2E em navegador real.
+**Totais:** 168 testes pytest · 112 testes `node:test` · 46 verificações E2E em navegador real.

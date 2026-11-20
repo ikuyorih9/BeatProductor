@@ -109,7 +109,7 @@ Quando aparecer *"Beat Productor rodando em http://127.0.0.1:8000"*, abra esse e
 | **Célula** | A **figura** de cada célula do grid, com o nome da partitura: `1/4` semínima ♩, `1/8` colcheia ♪, `1/8 tercina`, `1/16` semicolcheia (padrão), `1/16 tercina`. Um clique = uma nota dessa figura. Trocar a célula **não altera** as notas já criadas. |
 | **Loop** + número | Liga a repetição contínua da reprodução. O número ao lado (1 a 32) é a quantidade de repetições no arquivo exportado. |
 | **Importar** / **Exportar projeto** | Abre / salva o projeto inteiro num arquivo de texto (ver seção 6). |
-| **Exportar MP3** | Gera o arquivo de áudio no servidor e baixa no navegador (ver seção 5). |
+| **Exportar MP3** ▾ | Gera o arquivo de áudio no servidor e baixa no navegador (ver seção 5). O botão gera **MP3**; a **seta ▾** ao lado abre um menu com **Exportar como MP3** e **Exportar como WAV**. |
 
 ### 3.2 Barra de edição e mixer
 
@@ -214,7 +214,7 @@ Com notas selecionadas:
 |---|---|---|
 | **Piano Acústico** | Percussivo, decai naturalmente (mais rápido nos agudos) | Soltar antes encurta; notas longas deixam o som decair |
 | **Bateria** | 17 peças: bumbo, caixa, chimbal, surdo, 2 tons, ride, prato de ataque, splash, china, stack, bell, octobans, rototons, cowbell, jam block e pandeirola (ver 4.6) | Ignorada (som *one-shot*) |
-| **Baixo** | Baixo elétrico dedilhado: grave encorpado com ataque de corda. **Soa uma oitava abaixo da nota escrita**, como na partitura de baixo (a tecla C3 soa C2, 65 Hz; a dica da tecla mostra a nota real). Ao escolher o baixo, a tela desce até as teclas graves | Sustenta enquanto durar a nota (a corda vai perdendo força) |
+| **Baixo** | Baixo elétrico de **4 cordas**, dedilhado, por **modelagem física de corda**: o som nasce de uma corda simulada puxada pelo dedo, então o ataque é brilhante e vai arredondando, e as notas graves sustentam mais, como num baixo de verdade. **Soa uma oitava abaixo da nota escrita**, como na partitura de baixo (a tecla C3 soa C2, 65 Hz; a dica da tecla mostra a nota real). Ao escolher o baixo, a tela desce até as teclas graves | Sustenta enquanto durar a nota (a corda vai perdendo força) |
 | **Lofi Synth** | Abafado e quente, com leve vibrato | Sustenta enquanto durar a nota |
 | **Lead Synth** | Brilhante (dente-de-serra), para melodias | Sustenta enquanto durar a nota |
 
@@ -288,10 +288,18 @@ Com **Loop** marcado, o PLAY recomeça do início toda vez que chega ao **FIM da
 pausa), indefinidamente, até você pausar. Sem loop, a reprodução para no FIM e as últimas notas terminam de soar
 naturalmente. Para deixar silêncio antes de repetir, use pausas (seção 4.2).
 
-### 5.2 Exportar MP3
+### 5.2 Exportar MP3 ou WAV
 1. (Opcional) Marque **Loop** e defina a **quantidade de repetições** (1 a 32).
-2. Clique em **Exportar MP3**. O botão mostra *"Gerando…"* enquanto o servidor sintetiza o áudio.
-3. O navegador baixa um arquivo `beat-productor-AAAAMMDD-HHMMSS.mp3` (MP3 192 kbps, 44,1 kHz).
+2. Clique em **Exportar MP3** — ou na **seta ▾** ao lado e escolha **Exportar como WAV**. O botão mostra
+   *"Gerando MP3…"* / *"Gerando WAV…"* enquanto o servidor sintetiza o áudio.
+3. O navegador baixa `beat-productor-AAAAMMDD-HHMMSS.mp3` (MP3 192 kbps, 44,1 kHz) ou `.wav`.
+
+| Formato | Quando usar |
+|---|---|
+| **MP3** | Para ouvir, mandar e postar: arquivo ~7× menor. |
+| **WAV** | Sem compressão (16 bits, 44,1 kHz, mono): para editar em outro programa (DAW) ou masterizar. |
+
+O conteúdo é o mesmo nos dois formatos.
 
 O que entra no arquivo:
 - Uma passada vai do início até o **FIM da música** (fim da última nota ou pausa), exatamente como no PLAY.
