@@ -232,8 +232,8 @@ export class Sequence {
       try {
         // Projetos salvos antes das pausas não têm "kind": são notas.
         const item = { kind: 'note', ...(raw ?? {}) };
-        // Na bateria, tecla fora do kit não toca nem aparece: descartada.
-        if (item.instrument === 'drums' && !isPlayable('drums', item.midi)) continue;
+        // Tecla desativada para o instrumento (fora do kit da bateria, abaixo do E1 no baixo): descartada.
+        if (!isPlayable(item.instrument, item.midi)) continue;
         this.addNote(item);
       } catch {
         // entrada corrompida: ignorada

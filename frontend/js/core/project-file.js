@@ -19,10 +19,10 @@ import {
   BARS, BPM, DIVISIONS, HIGHEST_MIDI, INSTRUMENT_IDS, LOOPS, LOWEST_MIDI, METERS, VOLUME,
 } from '../config.js';
 import {
-  DRUM_HIGHEST_MIDI, DRUM_LOWEST_MIDI, DRUM_PIECES,
+  BASS_LOWEST_MIDI, DRUM_HIGHEST_MIDI, DRUM_LOWEST_MIDI, DRUM_PIECES,
 } from '../config.js';
 import {
-  drumPieceForMidi, isPlayable, migrateBottomKitMidi, migrateDrumItems, migrateLegacyDrumMidi, midiToName,
+  drumPieceForMidi, isPlayable, migrateBassOctave, migrateBottomKitMidi, migrateDrumItems, migrateLegacyDrumMidi, midiToName,
   NOTE_NAMES,
 } from './music.js';
 import { defaultSettings } from './project.js';
@@ -36,7 +36,7 @@ import { divisionFitsMeter, lengthInTicks, meterInfo } from './timing.js';
  * Arquivos antigos são migrados. Arquivo sem "versao" é lido como a versão atual. Nomes de peça
  * (bumbo, caixa…) valem em qualquer versão e nunca são convertidos.
  */
-export const FILE_FORMAT_VERSION = 3;
+export const FILE_FORMAT_VERSION = 4;
 
 /** Conversão das notas de bateria escritas como nota (C3, D#4…) em arquivos de versões antigas. */
 const DRUM_MIGRATION = Object.freeze({ 1: migrateLegacyDrumMidi, 2: migrateBottomKitMidi });
@@ -221,6 +221,7 @@ export function serializeProjectFile(settings, items) {
     `#   duração = em tempos (aqui 1 tempo = ${beatName}):  1   2   1/2   1+1/2`,
     `#   nota    = C4, F#3, Bb4… (faixa ${midiToName(LOWEST_MIDI)} a ${midiToName(HIGHEST_MIDI)})`,
     `#   bateria = só as teclas ${midiToName(DRUM_LOWEST_MIDI)} a ${midiToName(DRUM_HIGHEST_MIDI)}, ou o nome da peça: ${DRUM_ALIAS_HINT}`,
+    `#   baixo   = teclas ${midiToName(BASS_LOWEST_MIDI)} a ${midiToName(HIGHEST_MIDI)}; soa duas oitavas abaixo (${midiToName(BASS_LOWEST_MIDI)} = E1, a corda Mi solta)`,
     '#   "pausa" no fim da linha = pausa (bloco branco, silêncio que conta para o fim da música)',
     '',
     '[projeto]',
@@ -349,8 +350,12 @@ export function parseProjectFile(text) {
         if (midi < LOWEST_MIDI || midi > HIGHEST_MIDI) {
           throw new Error(`nota ${parts[1]} fora da faixa do grid (${midiToName(LOWEST_MIDI)} a ${midiToName(HIGHEST_MIDI)})`);
         }
-        if (!isPlayable(instrument, midi)) {
-          throw new Error(`a nota ${parts[1]} não é uma peça da bateria (use ${midiToName(DRUM_LOWEST_MIDI)} a ${midiToName(DRUM_HIGHEST_MIDI)} ou ${DRUM_ALIAS_HINT})`);
+        // Até a v3 o baixo soava uma oitava abaixo da tecla (agora, duas): a migração vem depois.
+        const playable = instrument === 'bass' && version <= 3 ? midi + 12 : midi;
+        if (!isPlayable(instrument, playable) && !(instrument === 'bass' && playable > HIGHEST_MIDI)) {
+          throw new Error(instrument === 'drums'
+            ? `a nota ${parts[1]} não é uma peça da bateria (use ${midiToName(DRUM_LOWEST_MIDI)} a ${midiToName(DRUM_HIGHEST_MIDI)} ou ${DRUM_ALIAS_HINT})`
+            : `a nota ${parts[1]} está abaixo da corda mais grave do baixo (use ${midiToName(BASS_LOWEST_MIDI)} ou acima: ${midiToName(BASS_LOWEST_MIDI)} soa E1, a corda Mi solta)`);
         }
         const duration = parseBeats(parts[2], beatTicks);
         if (duration <= 0) throw new Error('duração deve ser maior que zero');
@@ -364,6 +369,13 @@ export function parseProjectFile(text) {
   if (errors.length > 0) return { ok: false, errors };
   // Peças antigas que caíram na mesma tecla não podem se sobrepor (a anterior é encurtada).
   if (migrateDrum) items.splice(0, items.length, ...migrateDrumItems(items, (midi) => midi));
+  const hadBass = items.some((item) => item.instrument === 'bass');
+  let droppedBass = 0;
+  if (version <= 3 && hadBass) {
+    const migrated = migrateBassOctave(items);
+    items.splice(0, items.length, ...migrated.items);
+    droppedBass = migrated.dropped;
+  }
 
   const warnings = [];
   /** Avisos informativos (não são problemas): conversões feitas na importação. */
@@ -372,6 +384,12 @@ export function parseProjectFile(text) {
     notices.push(version === 1
       ? 'bateria de um arquivo antigo convertida para o kit novo (chimbal aberto virou chimbal)'
       : `bateria de um arquivo antigo movida para as teclas atuais do kit (${midiToName(DRUM_LOWEST_MIDI)} a ${midiToName(DRUM_HIGHEST_MIDI)})`);
+  }
+  if (version <= 3 && hadBass) {
+    notices.push('baixo de um arquivo antigo subiu uma oitava no grid — o som continua o mesmo (o baixo agora soa duas oitavas abaixo da tecla)');
+  }
+  if (droppedBass > 0) {
+    warnings.push(`${droppedBass} nota(s) de baixo agudas demais para o baixo de 4 cordas ficaram de fora`);
   }
   const gridEnd = lengthInTicks(settings.bars, settings.meter);
   const outside = items.filter((item) => item.start >= gridEnd).length;

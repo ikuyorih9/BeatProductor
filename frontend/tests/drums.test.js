@@ -97,8 +97,8 @@ test('projeto salvo no navegador v2 (4 peças) é migrado ao abrir; o novo salva
   const seq = new Sequence(192);
   seq.loadJSON(loaded.notes);
   const saved = serializeProject(loaded.settings, seq);
-  assert.equal(JSON.parse(saved).version, 4);
-  assert.deepEqual(byMidi(parseProject(saved).notes), byMidi(seq.toJSON())); // v4 não é migrado de novo
+  assert.equal(JSON.parse(saved).version, 5);
+  assert.deepEqual(byMidi(parseProject(saved).notes), byMidi(seq.toJSON())); // a versão atual não é migrada de novo
 });
 
 test('projeto salvo no navegador v3 (kit embaixo) sobe para o kit centralizado', () => {
@@ -169,7 +169,7 @@ test('arquivo exportado com as 17 peças volta idêntico, sem avisos', () => {
   const seq = new Sequence(192);
   DRUM_PIECES.forEach((piece, i) => seq.addNote({ instrument: 'drums', midi: piece.midi, start: i * 3, duration: 3 }));
   const text = serializeProjectFile(defaultSettings(), seq.toJSON());
-  assert.match(text, /versao\s+= 3/);
+  assert.match(text, /versao\s+= 4/);
   assert.match(text, /# prato de ataque/);
   assert.match(text, /# surdo/);
   assert.match(text, /# pandeirola/);

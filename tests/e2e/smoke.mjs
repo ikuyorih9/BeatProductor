@@ -587,13 +587,13 @@ await check('compasso 3/8: a semínima não cabe, a célula vira colcheia e a op
   await setControl('division-select', '1/16');
 });
 
-await check('baixo: está no seletor e no mixer, usa o grid inteiro e toca uma oitava abaixo do escrito', async () => {
+await check('baixo: está no seletor e no mixer, começa no E3 (= E1) e soa duas oitavas abaixo da tecla', async () => {
   const options = await evaluate('[...document.querySelectorAll("#instrument-select option")].map(o => o.value)');
   assert.deepEqual(options, ['piano', 'drums', 'bass', 'lofi', 'lead']);
   assert.equal(await evaluate('document.getElementById("volume-bass").value'), '100');
   await setControl('instrument-select', 'bass');
-  assert.equal(await evaluate('document.querySelectorAll("#piano-keys .key-disabled").length'), 0);
-  assert.match(await evaluate('document.querySelector("#piano-keys [data-midi=\\"48\\"]").title'), /soa C2/);
+  assert.equal(await evaluate('document.querySelectorAll("#piano-keys .key-disabled").length'), 4); // C3 a D#3
+  assert.match(await evaluate('document.querySelector("#piano-keys [data-midi=\\"52\\"]").title'), /soa E1/);
   // Ao escolher o baixo, a tela desce até as teclas graves: C3 (a última linha) fica visível.
   const c3 = await evaluate(`(() => {
     const row = document.querySelectorAll('.grid-row')[35].getBoundingClientRect();
@@ -602,25 +602,28 @@ await check('baixo: está no seletor e no mixer, usa o grid inteiro e toca uma o
   })()`);
   assert.ok(c3.top >= c3.boxTop && c3.bottom <= c3.boxBottom + 1, `C3 fora da tela no baixo: ${JSON.stringify(c3)}`);
   await clickElement('#tool-draw');
-  const p = await cellPoint(35, 10); // C3, a tecla mais grave
+  const blocked = await cellPoint(35, 10); // C3: abaixo da corda Mi solta, não cria nota
+  await click(blocked.x, blocked.y);
+  const p = await cellPoint(31, 10); // E3 = E1, a tecla mais grave do baixo
   await click(p.x, p.y);
-  await waitFor(`${notesOf('bass')}.some(n => n.midi === 48 && n.start === 30)`, 2000, 'nota do baixo criada');
+  await waitFor(`${notesOf('bass')}.some(n => n.midi === 52 && n.start === 30)`, 2000, 'nota do baixo criada');
+  assert.equal(await evaluate(`${notesOf('bass')}.some(n => n.midi === 48)`), false);
   const hz = await evaluate(`(async () => {
     const { INSTRUMENT_FACTORIES } = await import('./js/audio/instruments.js');
     const sr = 44100, n = 32768;
     const ctx = new OfflineAudioContext(1, n, sr);
-    const v = INSTRUMENT_FACTORIES.bass(ctx, { midi: 48, when: 0, duration: 1 }, {});
+    const v = INSTRUMENT_FACTORIES.bass(ctx, { midi: 52, when: 0, duration: 1 }, {});
     v.output.connect(ctx.destination); v.sources.forEach((s) => { s.start(0); s.stop(v.endTime); });
     const d = await ctx.startRendering().then((b) => b.getChannelData(0));
-    // Frequência pela autocorrelação (período entre 40 e 200 Hz).
+    // Frequência pela autocorrelação (período entre 30 e 200 Hz).
     let best = 0, lag = 0;
-    for (let k = Math.floor(sr / 200); k <= Math.ceil(sr / 40); k += 1) {
+    for (let k = Math.floor(sr / 200); k <= Math.ceil(sr / 30); k += 1) {
       let c = 0; for (let i = 0; i < n - k; i += 1) c += d[i] * d[i + k];
       if (c > best) { best = c; lag = k; }
     }
     return sr / lag;
   })()`);
-  assert.ok(Math.abs(hz - 65.4) < 2, `C3 escrito deveria soar C2 (65,4 Hz), soou ${hz.toFixed(1)} Hz`);
+  assert.ok(Math.abs(hz - 41.2) < 1, `E3 no grid deveria soar E1 (41,2 Hz), soou ${hz.toFixed(1)} Hz`);
   await setControl('instrument-select', 'drums');
 });
 

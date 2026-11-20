@@ -45,6 +45,15 @@ def test_drum_note_outside_the_kit_is_a_clear_422(client):
     assert "A3 a C#5" in response.text
 
 
+def test_bass_note_below_the_low_e_string_is_a_clear_422(client):
+    body = payload(events=[{"time": 0.0, "note": "D#3", "duration": 0.1, "instrument": "bass"}])
+    response = client.post("/api/export", json=body)
+    assert response.status_code == 422
+    assert "abaixo da corda mais grave do baixo" in response.text
+    ok = payload(events=[{"time": 0.0, "note": "E3", "duration": 0.1, "instrument": "bass"}])
+    assert client.post("/api/export", json=ok).status_code == 200
+
+
 def test_all_17_drum_pieces_export(client):
     notes = ["A3", "A#3", "B3", "C4", "C#4", "D4", "D#4", "E4", "F4", "F#4", "G4", "G#4", "A4", "A#4", "B4", "C5", "C#5"]
     events = [{"time": i * 0.1, "note": n, "duration": 0.1, "instrument": "drums"} for i, n in enumerate(notes)]

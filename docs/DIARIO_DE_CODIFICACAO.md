@@ -685,6 +685,39 @@ colcheia (4) não dividem o compasso.
 
 ---
 
+## 2026-11-19 — Baixo elétrico de verdade, medido de uma gravação
+
+**Pedido:** "Eu não quero um violão, eu quero um BAIXO BASS GUITAR". O usuário deixou nos Downloads a nota B1 de um baixo real como referência.
+
+**Análise da gravação** (decodificada no Chrome headless, `decodeAudioData`):
+- f0 = 61,94 Hz (B1, +6 cents); ataque de ~3 ms quase sem energia acima de 1 kHz (0,2%); centroide ~200 Hz.
+- Sustentação longa: o nível cai só ~7 dB em 2 s.
+- Harmônicos fortes só até o 5º (o 2º começa tão forte quanto a fundamental); do 7º em diante, abaixo de −30 dB.
+- Inarmonicidade pequena (B ≈ 1,5·10⁻⁴).
+
+**Por que o anterior soava como violão:** o modelo de corda (Karplus-Strong) tinha o ataque brilhante (~1,4 kHz), morria rápido demais e tocava no registro errado. O grid vai de C3 a B5; uma oitava abaixo, isso dá C2 a B4, a região de um violão. Um baixo de 4 cordas vai de E1 (41 Hz) até ~G3.
+
+**O que mudou:**
+- **Registro:** o baixo soa **duas oitavas** abaixo da tecla (`BASS_TRANSPOSE = -24`). E3 = E1 (a corda Mi solta) e B5 = B3. As 4 teclas C3 a D#3 ficam desativadas no baixo, com o mesmo mecanismo das teclas fora do kit da bateria (`playableRange`). O servidor recusa baixo abaixo de E3 com 422.
+- **Timbre:** **síntese modal**. Cada harmônico é um seno com nível próprio e um envelope de duas fases (uma parte cai rápido logo após o ataque, o resto sustenta). Os parâmetros foram ajustados por **mínimos quadrados** à trajetória de cada harmônico na gravação, de 0 a 3,2 s em janelas de 50 ms.
+  - Erro médio dos harmônicos 1 a 6 contra a referência: **1,0 dB**.
+  - Queda de nível em 0,2/0,5/1/2/3 s: referência −1,7/−3,5/−5,4/−7,2/−8,9 dB; modelo −1,9/−3,4/−5,1/−7,3/−8,9 dB.
+  - Notas mais agudas decaem mais rápido: × (f0/61,7 Hz)^0,7. Um corte suave em 1 kHz (captador) evita que as notas altas fiquem brilhantes.
+- **Mesma conta no navegador e no servidor:** no Python, vetorizado; no JS, por recorrência (fasor girando e fatores de decaimento por amostra). São ~2 ms por nota típica e 20 ms para uma nota de 4 s, 10× mais rápido que o cálculo direto. Diferença máxima medida: 1,5·10⁻⁸. Os testes de paridade conferem as mesmas amostras nos dois lados.
+- **Calibração:** 1,06 nos dois lados (RMS no C4 contra piano/lofi/lead).
+- **Migração (o som de projetos antigos não muda):**
+  - projeto salvo v4 → v5 e arquivo de texto `versao` 3 → 4;
+  - notas de baixo antigas sobem uma oitava no grid e soam exatamente como antes;
+  - notas que passariam do B5 ficam de fora com aviso; a importação mostra um aviso informativo.
+- **Privacidade/licença:** a gravação de referência **não** foi incluída no repositório. Só os números medidos dela entram no código.
+
+**Testes:**
+- pytest: altura por autocorrelação (E3 → 41,2 Hz, B3 → 61,7 Hz, E4 → 82,4 Hz); paridade; "escuro e sustentado como a referência" (centroide < 260 Hz, queda de 5 a 10 dB em 2 s, 2º harmônico −8 a −14 dB após 2 s); 422 abaixo do E3.
+- `node:test`: paridade; faixa tocável; migração de oitava (projeto v4 e arquivo v3, inclusive a nota que sai).
+- E2E: 4 teclas riscadas, C3 não cria nota, E3 cria, a dica diz "soa E1" e o áudio real mede 41,2 Hz.
+
+---
+
 ## Resumo final
 
 | Requisito | Onde |
@@ -700,4 +733,4 @@ colcheia (4) não dividem o compasso.
 | RNF02 Sem build/dependências pesadas | Vanilla JS em ES Modules + Tailwind via CDN, zero pacotes npm |
 | RNF03 MP3 limpo, sem cortes no loop | overlap-add, normalização −1 dBFS, fades de borda |
 
-**Totais:** 168 testes pytest · 112 testes `node:test` · 46 verificações E2E em navegador real.
+**Totais:** 171 testes pytest · 116 testes `node:test` · 46 verificações E2E em navegador real.

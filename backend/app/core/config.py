@@ -13,7 +13,7 @@ INSTRUMENTS = ("piano", "drums", "bass", "lofi", "lead")
 #: (campo `gain` de cada evento) é aplicado por cima disto.
 #: A bateria usa o mesmo nível relativo do navegador (lá, o barramento dela é 1,5 com o piano em
 #: 0,85; os sintetizadores daqui são ~1,25× mais baixos na bateria).
-INSTRUMENT_TRIM = {"piano": 1.0, "drums": 1.9, "bass": 1.39, "lofi": 1.0, "lead": 1.9}
+INSTRUMENT_TRIM = {"piano": 1.0, "drums": 1.9, "bass": 1.06, "lofi": 1.0, "lead": 1.9}
 
 #: Calibração de cada peça da bateria (sobre INSTRUMENT_TRIM["drums"]) pela intensidade de curto
 #: prazo (maior RMS em 50 ms) em relação ao bumbo, com o pico de cada peça limitado a 1,2× o do

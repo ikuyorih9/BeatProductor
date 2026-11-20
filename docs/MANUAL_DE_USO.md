@@ -214,7 +214,7 @@ Com notas selecionadas:
 |---|---|---|
 | **Piano Acústico** | Percussivo, decai naturalmente (mais rápido nos agudos) | Soltar antes encurta; notas longas deixam o som decair |
 | **Bateria** | 17 peças: bumbo, caixa, chimbal, surdo, 2 tons, ride, prato de ataque, splash, china, stack, bell, octobans, rototons, cowbell, jam block e pandeirola (ver 4.6) | Ignorada (som *one-shot*) |
-| **Baixo** | Baixo elétrico de **4 cordas**, dedilhado, por **modelagem física de corda**: o som nasce de uma corda simulada puxada pelo dedo, então o ataque é brilhante e vai arredondando, e as notas graves sustentam mais, como num baixo de verdade. **Soa uma oitava abaixo da nota escrita**, como na partitura de baixo (a tecla C3 soa C2, 65 Hz; a dica da tecla mostra a nota real). Ao escolher o baixo, a tela desce até as teclas graves | Sustenta enquanto durar a nota (a corda vai perdendo força) |
+| **Baixo** | **Baixo elétrico de 4 cordas** (bass guitar), tocado com o dedo. O timbre foi **medido de uma gravação real** de baixo: som grave e escuro, ataque macio e sustentação longa. **Soa duas oitavas abaixo da tecla**: a tecla **E3 soa E1** (41 Hz, a corda Mi solta, a nota mais grave de um baixo de 4 cordas) e a B5 soa B3. As 4 teclas abaixo do E3 (C3 a D#3) ficam **riscadas** no baixo, porque estão abaixo da corda mais grave. A dica de cada tecla mostra a nota real. Ao escolher o baixo, a tela desce até as teclas graves | Sustenta enquanto durar a nota (a corda vai perdendo força) |
 | **Lofi Synth** | Abafado e quente, com leve vibrato | Sustenta enquanto durar a nota |
 | **Lead Synth** | Brilhante (dente-de-serra), para melodias | Sustenta enquanto durar a nota |
 
@@ -388,6 +388,9 @@ Cada nota é uma linha **`posição  nota  duração  [pausa]`**, separadas por 
 - Seções e campos podem vir em qualquer ordem e com maiúsculas/acentos (`[Projeto]`, `Divisão`). Campos que
   faltarem ficam com o valor padrão; instrumentos sem notas podem ser omitidos. As seções dos instrumentos são
   `[piano]`, `[bateria]`, `[baixo]`, `[lofi]` e `[lead]`. Arquivos de antes do baixo abrem normalmente (volume do baixo em 100%).
+  No baixo, só as teclas E3 a B5 (E3 soa E1). Projetos e arquivos feitos quando o baixo soava só uma
+  oitava abaixo (arquivo `versao = 3` ou anterior) são convertidos ao abrir: as notas sobem uma oitava
+  no grid e **continuam soando igual**; o app avisa. Notas que passariam do B5 ficam de fora, com aviso.
 - Se houver erro, **nada é importado** e o app mostra a linha e o motivo, por exemplo
   *"linha 14: tempo 5 inválido (o compasso 4/4 tem 4 tempos)"*.
 - Importar **substitui** o projeto atual (o app pede confirmação).

@@ -3,7 +3,7 @@
  * Módulo puro (sem DOM) — testado em frontend/tests/music.test.js.
  */
 import {
-  DRUM_HIGHEST_MIDI, DRUM_LOWEST_MIDI, DRUM_PIECES, HIGHEST_MIDI, LOWEST_MIDI,
+  BASS_LOWEST_MIDI, DRUM_HIGHEST_MIDI, DRUM_LOWEST_MIDI, DRUM_PIECES, HIGHEST_MIDI, LOWEST_MIDI,
 } from '../config.js';
 
 export const NOTE_NAMES = Object.freeze(['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']);
@@ -54,11 +54,14 @@ export function drumPieceForMidi(midi) {
   return DRUM_BY_MIDI.get(midi) ?? null;
 }
 
-/** Faixa de teclas que o instrumento aceita (a bateria usa só as teclas do kit). */
+/**
+ * Faixa de teclas que o instrumento aceita: a bateria usa só as teclas do kit; o baixo começa no E3
+ * (= E1, a corda Mi solta); os outros usam o grid inteiro.
+ */
 export function playableRange(instrument) {
-  return instrument === 'drums'
-    ? { minMidi: DRUM_LOWEST_MIDI, maxMidi: DRUM_HIGHEST_MIDI }
-    : { minMidi: LOWEST_MIDI, maxMidi: HIGHEST_MIDI };
+  if (instrument === 'drums') return { minMidi: DRUM_LOWEST_MIDI, maxMidi: DRUM_HIGHEST_MIDI };
+  if (instrument === 'bass') return { minMidi: BASS_LOWEST_MIDI, maxMidi: HIGHEST_MIDI };
+  return { minMidi: LOWEST_MIDI, maxMidi: HIGHEST_MIDI };
 }
 
 export function isPlayable(instrument, midi) {
@@ -114,6 +117,29 @@ export function migrateDrumItems(items, mapMidi) {
     kept.push(item);
   }
   return [...others, ...kept];
+}
+
+/**
+ * Baixo de projetos anteriores (salvo v4 / arquivo de texto v3), que soava UMA oitava abaixo da tecla:
+ * agora soa duas, então a nota sobe uma oitava no grid e continua soando igual. Notas que passariam do
+ * topo do grid (soavam acima de B3, fora do alcance do baixo) são descartadas.
+ * @returns {{ items: Array, dropped: number }}
+ */
+export function migrateBassOctave(items) {
+  const kept = [];
+  let dropped = 0;
+  for (const item of items) {
+    if (item && item.instrument === 'bass' && Number.isInteger(item.midi)) {
+      if (item.midi + 12 > HIGHEST_MIDI) {
+        dropped += 1;
+        continue;
+      }
+      kept.push({ ...item, midi: item.midi + 12 });
+    } else {
+      kept.push(item);
+    }
+  }
+  return { items: kept, dropped };
 }
 
 /** Bateria de 4 peças → kit atual. */

@@ -271,104 +271,97 @@ export function drums(ctx, { midi, when }, { noiseBuffer }) {
 }
 
 // ------------------------------------------------------------------ Baixo
-/** O baixo soa uma oitava abaixo da nota escrita (como na partitura de baixo): C3 no grid = C2, 65 Hz. */
-export const BASS_TRANSPOSE = -12;
+/**
+ * O baixo soa DUAS oitavas abaixo da tecla do grid: E3 no grid = E1 (41 Hz), a corda Mi solta de um
+ * baixo de 4 cordas; B5 = B3. As teclas abaixo de E3 ficam desativadas (ver BASS_LOWEST_MIDI).
+ */
+export const BASS_TRANSPOSE = -24;
 
-/** Parâmetros da corda (= backend BASS_STRING). Ver `renderBassString`. */
-export const BASS_STRING = Object.freeze({
-  pluckPosition: 0.22, // onde o dedo puxa a corda (fração do comprimento, a partir do cavalete)
-  fingerNoise: 0.15, // parte "ruído" da excitação (atrito do dedo); o resto é o formato da corda puxada
-  damping: 0.2, // perda nos agudos a cada ida e volta na corda (0 = brilhante … 0,25 = abafado)
-  t60Low: 5.0, // segundos até -60 dB na nota mais grave (C2)…
-  t60Min: 2.2, // …e o mínimo, nas agudas (cordas agudas sustentam menos)
-  toneHz: 1400, // captador + amplificador: passa-baixa de 1ª ordem
-  attack: 0.002, // ataque do dedo (evita estalo)
+/**
+ * Modelo medido de um baixo elétrico real (nota B1 de referência). Espelha BASS_MODEL do backend —
+ * as duas implementações fazem a mesma conta.
+ */
+export const BASS_MODEL = Object.freeze({
+  // Ajustados por mínimos quadrados à trajetória de cada harmônico na gravação de referência (erro de
+  // 0,1 a 1,8 dB do 1º ao 5º harmônico). Nível de cada harmônico em dB relativos à fundamental —
+  // quase nada acima do 6º: o baixo é escuro.
+  harmonicsDb: Object.freeze([0, 3.1, -7.3, -8.3, -9.3, -21.3, -32.1, -33.3, -39.1, -32.3, -33.7, -35, -40, -45, -50, -55]),
+  // Decaimento lento de cada harmônico (dB/s) no B1; notas mais agudas decaem mais rápido:
+  // × (f0 / 61,7 Hz)^0,7 (cordas mais curtas/finas perdem energia mais depressa).
+  decayDb: Object.freeze([1.5, 3.5, 0.5, 3, 5, 4.2, 6.8, 9.2, 8.2, 9.5, 10, 7, 12, 14, 16, 18]),
+  decayRefHz: 61.7,
+  decayExponent: 0.7,
+  // Duas fases: parte de alguns harmônicos (o 2º e o 3º, sobretudo) some rápido logo após o ataque
+  // (o "estalo" da corda) e o resto sustenta. Fração rápida de cada harmônico e a sua queda (dB/s).
+  fastFraction: Object.freeze([0.05, 0.7, 0.85, 0, 0.05, 0.65, 0, 0.75, 0.6, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9]),
+  fastDecayDb: 30,
+  inharmonicity: 1.5e-4, // corda grossa: os harmônicos ficam levemente acima de k·f0
+  toneHz: 1000, // captador/amplificador: corte suave nos agudos
+  maxHz: 5000,
+  attack: 0.003, // ataque do dedo, como na gravação (~3 ms)
   release: 0.1, // abafar a corda com a mão ao fim da nota
-  peak: 0.5,
+  level: 0.25, // RMS no ataque (antes da calibração do instrumento)
 });
 
-/** Ruído determinístico (xorshift32) — o MESMO gerador do servidor, para os dois soarem iguais. */
-function xorshiftNoise(n, seed) {
-  let state = (seed >>> 0) || 1;
-  const out = new Float64Array(n);
-  for (let i = 0; i < n; i += 1) {
-    state = (state ^ (state << 13)) >>> 0;
-    state = (state ^ (state >>> 17)) >>> 0;
-    state = (state ^ (state << 5)) >>> 0;
-    out[i] = (state / 4294967296) * 2 - 1;
+/** [frequência, amplitude, decaimento lento, fração rápida, decaimento rápido] de cada modo audível. */
+function bassModes(midi) {
+  const m = BASS_MODEL;
+  const f0 = midiToFrequency(midi + BASS_TRANSPOSE);
+  const pitchScale = (f0 / m.decayRefHz) ** m.decayExponent;
+  const modes = [];
+  for (let i = 0; i < m.harmonicsDb.length; i += 1) {
+    const k = i + 1;
+    const frequency = k * f0 * Math.sqrt(1 + m.inharmonicity * k * k);
+    if (frequency >= m.maxHz) break;
+    const tone = 1 / Math.sqrt(1 + (frequency / m.toneHz) ** 4);
+    const decay = m.decayDb[i] * pitchScale;
+    modes.push([frequency, 10 ** (m.harmonicsDb[i] / 20) * tone, decay, m.fastFraction[i], m.fastDecayDb * pitchScale]);
   }
-  return out;
+  return modes;
 }
 
 /**
- * Baixo elétrico de 4 cordas por MODELAGEM FÍSICA (Karplus-Strong estendido): uma "corda" digital —
- * linha de atraso do tamanho de um período, realimentada com uma pequena perda (maior nos agudos).
- * Puxar a corda = encher a linha com o formato da corda deslocada pelo dedo (triângulo com vértice em
- * `pluckPosition`) + um pouco de ruído (atrito do dedo). Os harmônicos nascem e morrem como numa corda
- * real: ataque brilhante que vai arredondando; graves sustentam mais.
+ * Baixo elétrico de 4 cordas por SÍNTESE MODAL medida de um baixo real (nota B1 de referência):
+ * cada modo de vibração da corda é um seno com o nível e o decaimento medidos na gravação.
  * É a MESMA conta de backend/app/audio/instruments.py (`bass`), amostra por amostra.
  * @returns {Float32Array} a nota inteira (com o abafamento no fim)
  */
-export function renderBassString(midi, duration, sampleRate) {
-  const p = BASS_STRING;
-  const frequency = midiToFrequency(midi + BASS_TRANSPOSE);
-  const n = Math.max(1, Math.round((Math.max(duration, 0.005) + p.release * 1.5) * sampleRate));
-
-  // Atraso total da malha = período: filtro de perda [a, 1-2a, a] (atraso 1) + interpolação linear
-  // [1-w, w] da parte fracionária (afinação exata).
-  const period = sampleRate / frequency;
-  const whole = Math.floor(period - 1);
-  const frac = period - 1 - whole;
-  const a = p.damping;
-  const loss = [a, 1 - 2 * a, a];
-  const k = [0, 0, 0, 0];
-  for (let i = 0; i < 2; i += 1) for (let j = 0; j < 3; j += 1) k[i + j] += (i === 0 ? 1 - frac : frac) * loss[j];
-  const t60 = Math.max(p.t60Min, p.t60Low * Math.sqrt(midiToFrequency(36) / frequency));
-  const gain = 10 ** ((-3 * period) / (t60 * sampleRate));
-
-  // Excitação: corda puxada pelo dedo.
-  const beta = p.pluckPosition;
-  const noise = xorshiftNoise(whole, 0x9e3779b9 ^ midi);
-  const excitation = new Float64Array(whole);
-  let mean = 0;
-  for (let i = 0; i < whole; i += 1) {
-    const x = (i + 0.5) / whole;
-    const shape = x < beta ? x / beta : (1 - x) / (1 - beta);
-    excitation[i] = (1 - p.fingerNoise) * shape + p.fingerNoise * noise[i];
-    mean += excitation[i];
+export function renderBass(midi, duration, sampleRate) {
+  const m = BASS_MODEL;
+  const n = Math.max(1, Math.round((Math.max(duration, 0.005) + m.release * 1.5) * sampleRate));
+  const modes = bassModes(midi);
+  const norm = m.level / Math.sqrt(modes.reduce((sum, [, a]) => sum + a * a, 0) / 2);
+  const sum = new Float64Array(n);
+  // Mesma conta do servidor (seno × duas exponenciais), feita por recorrência para ser rápida no
+  // navegador: o seno é um fasor girando (cos/sin do passo) e cada exponencial é multiplicada por um
+  // fator constante a cada amostra. A diferença para o cálculo direto é ~1e-10 (ver bass.test.js).
+  for (const [frequency, amp, decay, fast, fastDecay] of modes) {
+    const step = (2 * Math.PI * frequency) / sampleRate;
+    const cos = Math.cos(step);
+    const sin = Math.sin(step);
+    const slowFactor = 10 ** (-decay / (20 * sampleRate));
+    const fastFactor = 10 ** (-fastDecay / (20 * sampleRate));
+    let re = 1;
+    let im = 0;
+    let slow = (1 - fast) * amp * norm;
+    let quick = fast * amp * norm;
+    for (let i = 0; i < n; i += 1) {
+      sum[i] += (slow + quick) * im;
+      const nextRe = re * cos - im * sin;
+      im = re * sin + im * cos;
+      re = nextRe;
+      slow *= slowFactor;
+      quick *= fastFactor;
+    }
   }
-  mean /= whole;
-  let max = 0;
-  for (let i = 0; i < whole; i += 1) {
-    excitation[i] -= mean;
-    max = Math.max(max, Math.abs(excitation[i]));
-  }
-
-  const y = new Float64Array(n);
-  const at = (i) => (i >= 0 ? y[i] : 0);
-  for (let i = 0; i < n; i += 1) {
-    const input = i < whole ? excitation[i] / max : 0;
-    const j = i - whole;
-    y[i] = input + gain * (k[0] * at(j) + k[1] * at(j - 1) + k[2] * at(j - 2) + k[3] * at(j - 3));
-  }
-
-  // Captador/amplificador (passa-baixa de 1ª ordem + bloqueio de DC) e envelope: ataque do dedo,
-  // sustentação natural da corda, abafada ao fim da nota; fade de 5 ms no fim (sem estalo).
-  const c = 1 - Math.exp((-2 * Math.PI * p.toneHz) / sampleRate);
   const out = new Float32Array(n);
-  let low = 0;
-  let previousLow = 0;
-  let dc = 0;
   const fade = Math.min(n, Math.max(1, Math.trunc(0.005 * sampleRate)));
   for (let i = 0; i < n; i += 1) {
-    low = c * y[i] + (1 - c) * low;
-    dc = low - previousLow + 0.995 * dc;
-    previousLow = low;
     const t = i / sampleRate;
-    let env = Math.min(1, t / p.attack) * p.peak;
-    if (t >= duration) env *= Math.exp(-(t - duration) / (p.release / 4));
+    let env = Math.min(1, t / m.attack);
+    if (t >= duration) env *= Math.exp(-(t - duration) / (m.release / 4));
     if (i >= n - fade) env *= fade === 1 ? 0 : 1 - (i - (n - fade)) / (fade - 1);
-    out[i] = dc * env;
+    out[i] = sum[i] * env;
   }
   return out;
 }
@@ -378,17 +371,18 @@ const bassCache = new Map();
 const BASS_CACHE_LIMIT = 96;
 
 function bassSamples(midi, duration, sampleRate) {
-  const key = `${sampleRate}|${midi}|${Math.round(duration * 1000)}`;
+  const ms = Math.round(duration * 1000);
+  const key = `${sampleRate}|${midi}|${ms}`;
   let samples = bassCache.get(key);
   if (!samples) {
-    samples = renderBassString(midi, Math.round(duration * 1000) / 1000, sampleRate);
+    samples = renderBass(midi, ms / 1000, sampleRate);
     if (bassCache.size >= BASS_CACHE_LIMIT) bassCache.delete(bassCache.keys().next().value);
     bassCache.set(key, samples);
   }
   return samples;
 }
 
-/** Baixo de 4 cordas: a onda vem de `renderBassString` e toca como um buffer. */
+/** Baixo de 4 cordas: a onda vem de `renderBass` e toca como um buffer. */
 export function bass(ctx, { midi, when, duration }) {
   const samples = bassSamples(midi, duration, ctx.sampleRate);
   const buffer = ctx.createBuffer(1, samples.length, ctx.sampleRate);

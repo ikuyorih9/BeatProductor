@@ -122,3 +122,15 @@ test('a ferramenta ativa não vai para o projeto salvo', () => {
   const text = serializeProject({ ...settings(), tool: 'select' }, new Sequence(192));
   assert.equal(JSON.parse(text).settings.tool, undefined);
 });
+
+test('projeto salvo v4: o baixo sobe uma oitava no grid (agora soa duas abaixo da tecla) e continua soando igual', () => {
+  const notes = [
+    { instrument: 'bass', midi: 48, start: 0, duration: 6, kind: 'note' },
+    { instrument: 'bass', midi: 80, start: 6, duration: 6, kind: 'note' },
+    { instrument: 'piano', midi: 48, start: 0, duration: 6, kind: 'note' },
+  ];
+  const parsed = parseProject(JSON.stringify({ version: 4, settings: {}, notes }));
+  assert.deepEqual(parsed.notes.map((n) => [n.instrument, n.midi]), [['bass', 60], ['piano', 48]]);
+  const current = parseProject(JSON.stringify({ version: 5, settings: {}, notes }));
+  assert.deepEqual(current.notes.map((n) => n.midi), [48, 80, 48]);
+});

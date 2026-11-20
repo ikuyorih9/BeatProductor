@@ -78,7 +78,7 @@ test('exportar e importar devolve EXATAMENTE o mesmo projeto, em qualquer compas
     seq.addNote({ instrument: 'piano', midi: 61, start: 7, duration: 5 });
     seq.addRest({ instrument: 'piano', midi: 72, start: 40, duration: 2 });
     seq.addNote({ instrument: 'drums', midi: 62, start: 0, duration: 3 });
-    seq.addNote({ instrument: 'bass', midi: 48, start: 6, duration: 9 });
+    seq.addNote({ instrument: 'bass', midi: 52, start: 6, duration: 9 });
     seq.addNote({ instrument: 'drums', midi: 65, start: 33, duration: 3 });
     seq.addNote({ instrument: 'lofi', midi: 83, start: 100, duration: 70 });
     seq.addNote({ instrument: 'lead', midi: 48, start: 999, duration: 1 }); // além do grid: preservada
@@ -107,7 +107,7 @@ test('o arquivo é legível: cabeçalho, volume e notas por instrumento', () => 
   seq.addRest({ instrument: 'piano', midi: 62, start: 48, duration: 24 });
   seq.addNote({ instrument: 'drums', midi: 62, start: 0, duration: 3 });
   const text = serializeProjectFile(defaultSettings(), seq.toJSON());
-  assert.match(text, /\[projeto\]\nversao\s+= 3\nbpm\s+= 120/);
+  assert.match(text, /\[projeto\]\nversao\s+= 4\nbpm\s+= 120/);
   assert.match(text, /compasso\s+= 4\/4/);
   assert.match(text, /\[volume\][^\n]*\npiano\s+= 100/);
   assert.match(text, /\[piano\]\n# posição  nota  duração\n1\.1\s+C4\s+1\n1\.2\+1\/2\s+E4\s+1\/2\n2\.1\s+D4\s+2\s+pausa\n/);
@@ -179,17 +179,29 @@ test('avisos: sobreposição na mesma linha e notas depois do fim do grid', () =
 
 test('baixo: seção [baixo] no arquivo; arquivo antigo (sem baixo) abre com o baixo em 100%', () => {
   const seq = new Sequence(192);
-  seq.addNote({ instrument: 'bass', midi: 48, start: 0, duration: 12 });
+  seq.addNote({ instrument: 'bass', midi: 52, start: 0, duration: 12 });
   const text = serializeProjectFile({ ...defaultSettings(), instrument: 'bass' }, seq.toJSON());
   assert.match(text, /instrumento\s+= baixo/);
-  assert.match(text, /\[baixo\]\n# posição  nota  duração\n1\.1\s+C3\s+1/);
+  assert.match(text, /\[baixo\]\n# posição  nota  duração\n1\.1\s+E3\s+1/);
   const back = parseProjectFile(text);
   assert.equal(back.ok, true, JSON.stringify(back.errors));
   assert.equal(back.settings.instrument, 'bass');
-  assert.deepEqual(back.items.map((n) => [n.instrument, n.midi, n.duration]), [['bass', 48, 12]]);
+  assert.deepEqual(back.items.map((n) => [n.instrument, n.midi, n.duration]), [['bass', 52, 12]]);
 
   const old = parseProjectFile('[projeto]\nversao = 3\n[volume]\npiano = 50\n[piano]\n1.1  C4  1\n');
   assert.equal(old.ok, true, JSON.stringify(old.errors));
   assert.equal(old.settings.volumes.bass, 100);
   assert.equal(old.settings.volumes.piano, 50);
+});
+
+test('baixo: abaixo do E3 é recusado; arquivo v3 sobe uma oitava (mesmo som) e avisa', () => {
+  const low = parseProjectFile('[projeto]\n[baixo]\n1.1  C3  1\n');
+  assert.equal(low.ok, false);
+  assert.match(low.errors.join(' '), /abaixo da corda mais grave do baixo/);
+
+  const v3 = parseProjectFile('[projeto]\nversao = 3\n[baixo]\n1.1  C3  1\n1.2  A5  1\n');
+  assert.equal(v3.ok, true, JSON.stringify(v3.errors));
+  assert.deepEqual(v3.items.map((n) => [n.instrument, n.midi]), [['bass', 60]]);
+  assert.match(v3.notices.join(' '), /subiu uma oitava/);
+  assert.match(v3.warnings.join(' '), /1 nota\(s\) de baixo/);
 });

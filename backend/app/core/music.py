@@ -29,6 +29,10 @@ DRUM_KIT = {
 }
 DRUM_PIECES = tuple(DRUM_KIT.values())
 
+#: Tecla mais grave do baixo: E3 no grid soa E1, a corda Mi solta de um baixo de 4 cordas
+#: (o baixo soa duas oitavas abaixo da tecla). Espelha BASS_LOWEST_MIDI de frontend/js/config.js.
+BASS_LOWEST_MIDI = 52
+
 NOTE_PATTERN = r"^[A-G]#?-?\d$"
 _NOTE_RE = re.compile(r"^([A-G]#?)(-?\d)$")
 

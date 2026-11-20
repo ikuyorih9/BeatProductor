@@ -26,7 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from .core.config import (
     MAX_EVENTS, MAX_GAIN, MAX_LOOPS, MAX_NOTE_SECONDS, MAX_PATTERN_SECONDS, MAX_TOTAL_SECONDS,
 )
-from .core.music import DRUM_KIT, NOTE_PATTERN, drum_piece_for_midi, midi_to_name, note_to_midi
+from .core.music import BASS_LOWEST_MIDI, DRUM_KIT, NOTE_PATTERN, drum_piece_for_midi, midi_to_name, note_to_midi
 
 Instrument = Literal["piano", "drums", "bass", "lofi", "lead"]
 
@@ -57,6 +57,11 @@ class NoteEvent(BaseModel):
             raise ValueError(
                 f"a nota {self.note} não é uma peça da bateria "
                 f"(o kit vai de {midi_to_name(min(DRUM_KIT))} a {midi_to_name(max(DRUM_KIT))})"
+            )
+        if self.instrument == "bass" and note_to_midi(self.note) < BASS_LOWEST_MIDI:
+            raise ValueError(
+                f"a nota {self.note} está abaixo da corda mais grave do baixo "
+                f"(use {midi_to_name(BASS_LOWEST_MIDI)} ou acima: {midi_to_name(BASS_LOWEST_MIDI)} soa E1, a corda Mi solta)"
             )
         return self
 

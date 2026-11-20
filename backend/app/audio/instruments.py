@@ -257,95 +257,67 @@ def drums(midi: int, duration: float, sr: int = SAMPLE_RATE) -> np.ndarray:  # n
 
 
 # --------------------------------------------------------------------------- baixo
-#: O baixo soa uma oitava abaixo da nota escrita (como na partitura de baixo): C3 = C2, 65 Hz.
-BASS_TRANSPOSE = -12
+#: O baixo soa DUAS oitavas abaixo da tecla do grid: E3 no grid = E1 (41 Hz), a corda Mi solta de um
+#: baixo de 4 cordas; B5 = B3. As teclas abaixo de E3 ficam desativadas no baixo (= frontend).
+BASS_TRANSPOSE = -24
 
-#: Parâmetros da corda (= frontend BASS_STRING). Ver `bass` abaixo.
-BASS_STRING = {
-    "pluck_position": 0.22,   # onde o dedo puxa a corda (fração do comprimento, a partir do cavalete)
-    "finger_noise": 0.15,     # parte "ruído" da excitação (atrito do dedo), o resto é o formato da corda puxada
-    "damping": 0.2,           # perda nos agudos a cada ida e volta na corda (0 = brilhante … 0,25 = abafado)
-    "t60_low": 5.0,           # segundos até -60 dB na nota mais grave (C2)…
-    "t60_min": 2.2,           # …e o mínimo, nas agudas (cordas agudas sustentam menos)
-    "tone_hz": 1400.0,        # captador + amplificador: passa-baixa de 1ª ordem
-    "attack": 0.002,          # ataque do dedo (evita estalo)
+#: Modelo medido de um baixo elétrico real (nota B1 de referência, ver docs/DIARIO_DE_CODIFICACAO.md).
+#: Espelha frontend BASS_MODEL — as duas implementações fazem a mesma conta.
+BASS_MODEL = {
+    # Ajustados por mínimos quadrados à trajetória de cada harmônico na gravação de referência (erro
+    # de 0,1 a 1,8 dB do 1º ao 5º harmônico). Nível de cada harmônico em dB relativos à fundamental —
+    # quase nada acima do 6º: o baixo é escuro.
+    "harmonics_db": (0.00, 3.10, -7.30, -8.30, -9.30, -21.30, -32.10, -33.30, -39.10, -32.30, -33.70, -35.00, -40.00, -45.00, -50.00, -55.00),
+    # Decaimento lento de cada harmônico (dB/s) no B1; notas mais agudas decaem mais rápido:
+    # × (f0 / 61,7 Hz)^0,7 (cordas mais curtas/finas perdem energia mais depressa).
+    "decay_db": (1.50, 3.50, 0.50, 3.00, 5.00, 4.20, 6.80, 9.20, 8.20, 9.50, 10.00, 7.00, 12.00, 14.00, 16.00, 18.00),
+    "decay_ref_hz": 61.7,
+    "decay_exponent": 0.7,
+    # Duas fases: parte de alguns harmônicos (o 2º e o 3º, sobretudo) some rápido logo após o ataque
+    # (o "estalo" da corda) e o resto sustenta. Fração rápida de cada harmônico e a sua queda (dB/s).
+    "fast_fraction": (0.05, 0.70, 0.85, 0.00, 0.05, 0.65, 0.00, 0.75, 0.60, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90),
+    "fast_decay_db": 30.0,
+    "inharmonicity": 1.5e-4,  # corda grossa: os harmônicos ficam levemente acima de k·f0
+    "tone_hz": 1000.0,        # captador/amplificador: corte suave nos agudos (notas altas não ficam brilhantes)
+    "max_hz": 5000.0,
+    "attack": 0.003,          # ataque do dedo, como na gravação (~3 ms)
     "release": 0.1,           # abafar a corda com a mão ao fim da nota
-    "peak": 0.5,
+    "level": 0.25,            # RMS no ataque (antes da calibração do instrumento)
 }
 
 
-def _xorshift_noise(n: int, seed: int) -> np.ndarray:
-    """Ruído determinístico (xorshift32) — o MESMO gerador do navegador, para os dois soarem iguais."""
-    mask = 0xFFFFFFFF
-    state = seed & mask or 1
-    out = np.empty(n)
-    for i in range(n):
-        state ^= (state << 13) & mask
-        state ^= state >> 17
-        state ^= (state << 5) & mask
-        out[i] = state / 4294967296.0 * 2.0 - 1.0
-    return out
-
-
-def _one_pole(signal: np.ndarray, b: list[float], a: list[float]) -> np.ndarray:
-    from scipy.signal import lfilter
-
-    return lfilter(b, a, signal)
+def _bass_modes(midi: int) -> list[tuple[float, float, float, float, float]]:
+    """(frequência, amplitude, decaimento lento, fração rápida, decaimento rápido) de cada modo audível."""
+    m = BASS_MODEL
+    f0 = midi_to_frequency(midi + BASS_TRANSPOSE)
+    pitch_scale = (f0 / m["decay_ref_hz"]) ** m["decay_exponent"]
+    modes = []
+    for k, level_db in enumerate(m["harmonics_db"], start=1):
+        freq = k * f0 * np.sqrt(1.0 + m["inharmonicity"] * k * k)
+        if freq >= m["max_hz"]:
+            break
+        tone = 1.0 / np.sqrt(1.0 + (freq / m["tone_hz"]) ** 4)
+        decay = m["decay_db"][k - 1] * pitch_scale
+        modes.append((float(freq), float(10.0 ** (level_db / 20.0) * tone), float(decay),
+                      float(m["fast_fraction"][k - 1]), float(m["fast_decay_db"] * pitch_scale)))
+    return modes
 
 
 def bass(midi: int, duration: float, sr: int = SAMPLE_RATE) -> np.ndarray:
-    """Baixo elétrico de 4 cordas por MODELAGEM FÍSICA (Karplus-Strong estendido).
-
-    Uma "corda" digital: uma linha de atraso do tamanho de um período, realimentada com uma pequena
-    perda (mais forte nos agudos). Puxar a corda = encher a linha com o formato da corda deslocada pelo
-    dedo (triângulo com o vértice em `pluck_position`) mais um pouco de ruído (o atrito do dedo).
-    Os harmônicos nascem e morrem como numa corda real: o ataque é brilhante e o som vai ficando
-    redondo; as notas graves sustentam mais. Espelha frontend/js/audio/instruments.js (mesma conta).
-    """
-    p = BASS_STRING
-    freq = midi_to_frequency(midi + BASS_TRANSPOSE)
-    release = p["release"]
+    """Baixo elétrico de 4 cordas por SÍNTESE MODAL medida de um baixo real (nota B1 de referência):
+    cada modo de vibração da corda é um seno com o nível e o decaimento medidos na gravação.
+    Espelha frontend/js/audio/instruments.js (`renderBass`), amostra por amostra."""
+    m = BASS_MODEL
+    release = m["release"]
     n = max(1, int(round((max(duration, 0.005) + release * 1.5) * sr)))
-
-    # Atraso total da malha = período. Filtro de perda [a, 1-2a, a] (atraso 1) + interpolação linear
-    # [1-w, w] para a parte fracionária (afinação exata).
-    period = sr / freq
-    whole = int(np.floor(period - 1.0))
-    frac = period - 1.0 - whole
-    a = p["damping"]
-    loss = np.array([a, 1.0 - 2.0 * a, a])
-    kernel = np.convolve([1.0 - frac, frac], loss)  # 4 coeficientes, atrasos whole … whole+3
-    t60 = max(p["t60_min"], p["t60_low"] * np.sqrt(midi_to_frequency(36) / freq))
-    gain = 10.0 ** (-3.0 * period / (t60 * sr))
-
-    # Excitação: corda puxada pelo dedo.
-    x = (np.arange(whole) + 0.5) / whole
-    beta = p["pluck_position"]
-    shape = np.where(x < beta, x / beta, (1.0 - x) / (1.0 - beta))
-    noise = _xorshift_noise(whole, 0x9E3779B9 ^ midi)
-    excitation = (1.0 - p["finger_noise"]) * shape + p["finger_noise"] * noise
-    excitation -= excitation.mean()
-    excitation /= np.max(np.abs(excitation))
-
-    pad = whole + 3
-    y = np.zeros(pad + n)
-    y[pad:pad + min(whole, n)] = excitation[:n]
-    # Cada bloco de `whole` amostras só depende de amostras de pelo menos `whole` atrás: vetorizável.
-    for s0 in range(pad, pad + n, whole):
-        s1 = min(s0 + whole, pad + n)
-        feedback = (kernel[0] * y[s0 - whole:s1 - whole] + kernel[1] * y[s0 - whole - 1:s1 - whole - 1]
-                    + kernel[2] * y[s0 - whole - 2:s1 - whole - 2] + kernel[3] * y[s0 - whole - 3:s1 - whole - 3])
-        y[s0:s1] += gain * feedback
-    string = y[pad:]
-
-    # Captador/amplificador: passa-baixa de 1ª ordem + bloqueio de DC.
-    c = 1.0 - np.exp(-TWO_PI * p["tone_hz"] / sr)
-    out = _one_pole(string, [c], [1.0, -(1.0 - c)])
-    out = _one_pole(out, [1.0, -1.0], [1.0, -0.995])
-
-    # Envelope: ataque do dedo, sustentação natural da corda, abafada ao fim da nota.
     t = np.arange(n) / sr
-    env = np.minimum(1.0, t / p["attack"]) * p["peak"]
+    modes = _bass_modes(midi)
+    norm = m["level"] / np.sqrt(sum(mode[1] * mode[1] for mode in modes) / 2.0)
+    out = np.zeros(n)
+    for freq, amp, decay, fast, fast_decay in modes:
+        envelope = (1.0 - fast) * np.power(10.0, -decay * t / 20.0) + fast * np.power(10.0, -fast_decay * t / 20.0)
+        out += (amp * norm) * envelope * np.sin(TWO_PI * freq * t)
+    env = np.minimum(1.0, t / m["attack"])
     released = t >= duration
     env[released] *= np.exp(-(t[released] - duration) / (release / 4.0))
     return _fade_tail((out * env).astype(np.float32), sr)

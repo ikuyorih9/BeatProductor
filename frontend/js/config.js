@@ -13,7 +13,7 @@
  * antigos do cache, o número não bate e a página busca os arquivos de novo (ver index.html).
  * Aumente junto com APP_BUILD do index.html quando os módulos mudarem (um teste confere).
  */
-export const APP_BUILD = 7;
+export const APP_BUILD = 8;
 
 export const TICKS_PER_BEAT = 12; // ticks por semínima
 /** Ticks de uma semibreve (4 semínimas) — base para converter figuras: 1/8 de semibreve = 6 ticks. */
@@ -69,6 +69,12 @@ export const LOWEST_MIDI = 48;
 export const OCTAVES = 3;
 export const HIGHEST_MIDI = LOWEST_MIDI + OCTAVES * 12 - 1;
 
+/**
+ * Tecla mais grave do baixo: E3 no grid soa E1, a corda Mi solta de um baixo de 4 cordas (o baixo soa
+ * duas oitavas abaixo da tecla). As teclas abaixo ficam desativadas no baixo. = backend music.py.
+ */
+export const BASS_LOWEST_MIDI = 52;
+
 /** Geometria do grid (px). */
 export const ROW_HEIGHT = 22;
 export const CELL_WIDTH = Object.freeze({ MIN: 16, MAX: 112, PX_PER_SECOND: 224 });
@@ -91,7 +97,7 @@ export const DEFAULT_INSTRUMENT = 'piano';
  * Bateria: o bumbo no 100% chega a ~0,6 de pico na saída e nenhuma peça passa de ~0,72 — abaixo do
  * joelho do limitador (0,9), então ela soa limpa (sem saturar) mesmo com golpes simultâneos.
  */
-export const INSTRUMENT_TRIM = Object.freeze({ piano: 0.85, drums: 1.5, bass: 1.39, lofi: 1.0, lead: 2.1 });
+export const INSTRUMENT_TRIM = Object.freeze({ piano: 0.85, drums: 1.5, bass: 1.06, lofi: 1.0, lead: 2.1 });
 
 /**
  * Kit de bateria: 17 peças, cada uma numa tecla fixa (A3 a C#5, de baixo para cima), no CENTRO do

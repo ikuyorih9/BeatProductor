@@ -14,10 +14,12 @@ import {
   BARS, BPM, DEFAULT_DIVISION, DEFAULT_INSTRUMENT, DEFAULT_METER, DIVISIONS, INSTRUMENT_IDS,
   LEGACY_DIVISIONS, LOOPS, METERS, VOLUME,
 } from '../config.js';
-import { migrateBottomKitMidi, migrateDrumItems, migrateLegacyDrumItems } from './music.js';
+import {
+  migrateBassOctave, migrateBottomKitMidi, migrateDrumItems, migrateLegacyDrumItems,
+} from './music.js';
 import { divisionFitsMeter, toBoundedInt } from './timing.js';
 
-export const PROJECT_VERSION = 4;
+export const PROJECT_VERSION = 5;
 
 export function defaultVolumes() {
   return Object.fromEntries(INSTRUMENT_IDS.map((id) => [id, VOLUME.DEFAULT]));
@@ -78,12 +80,14 @@ export function parseProject(text) {
   if (typeof text !== 'string' || text === '') return null;
   try {
     const data = JSON.parse(text);
-    if (!data || ![1, 2, 3, PROJECT_VERSION].includes(data.version)) return null;
+    if (!data || ![1, 2, 3, 4, PROJECT_VERSION].includes(data.version)) return null;
     const raw = data.settings && typeof data.settings === 'object' ? { ...data.settings } : {};
     if (data.version === 1) raw.division = LEGACY_DIVISIONS[raw.division];
     let notes = Array.isArray(data.notes) ? data.notes : [];
     if (data.version < 3) notes = migrateLegacyDrumItems(notes);
     else if (data.version === 3) notes = migrateDrumItems(notes, migrateBottomKitMidi);
+    // v4: o baixo soava uma oitava abaixo da tecla; agora soa duas → sobe uma oitava (mesmo som).
+    if (data.version === 4) notes = migrateBassOctave(notes).items;
     return { settings: sanitizeSettings(raw), notes };
   } catch {
     return null;

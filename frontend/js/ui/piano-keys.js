@@ -49,7 +49,9 @@ export class PianoKeys {
         label = '';
         title = `${name} — fora do kit de bateria`;
       } else if (instrument === 'bass') {
-        title = `${name} (soa ${midiToName(midi + BASS_TRANSPOSE)}: o baixo soa uma oitava abaixo do escrito)`;
+        title = isPlayable('bass', midi)
+          ? `${name} (soa ${midiToName(midi + BASS_TRANSPOSE)}: o baixo soa duas oitavas abaixo da tecla)`
+          : `${name} — abaixo da corda mais grave do baixo (E1)`;
       }
       if (!isPlayable(instrument, midi)) classes.push('key-disabled');
       const key = createElement('div', classes.join(' '), { 'data-midi': String(midi), title, text: label });
