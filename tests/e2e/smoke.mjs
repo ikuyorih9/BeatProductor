@@ -562,6 +562,57 @@ await check('Ctrl+Z desfaz e Ctrl+Y / Ctrl+Shift+Z refazem; um arrasto inteiro �
   await clickElement('#tool-draw');
 });
 
+await check('linhas tracejadas entre as notas, até o fim do grid', async () => {
+  const style = await evaluate(`(() => {
+    const rows = document.querySelectorAll('.grid-row');
+    const grid = document.getElementById('grid').getBoundingClientRect();
+    const row = rows[10].getBoundingClientRect();
+    return { style: getComputedStyle(rows[10]).borderBottomStyle, c: getComputedStyle(document.querySelector('.grid-row.is-c')).borderBottomStyle, full: Math.abs(row.width - grid.width) < 1 };
+  })()`);
+  assert.deepEqual(style, { style: 'dashed', c: 'dashed', full: true });
+});
+
+await check('compor no último compasso faz o grid ganhar mais um (sem limite de 16)', async () => {
+  await setControl('instrument-select', 'piano');
+  await clickElement('#tool-draw');
+  const original = await evaluate('window.__beatProductor.store.get().bars');
+  // Garante o último compasso vazio para começar.
+  const start = await evaluate(`(() => {
+    const app = window.__beatProductor;
+    const barTicks = app.getLayout().lengthTicks / app.getLayout().bars;
+    return Math.max(app.store.get().bars, Math.ceil(app.sequence.endTick() / barTicks) + 1);
+  })()`);
+  await setControl('bars-input', start);
+  const point = async (bars) => evaluate(`(() => {
+    const app = window.__beatProductor;
+    const { barWidth, cellWidth } = app.getLayout();
+    const scroller = document.getElementById('roll-scroll');
+    const x = barWidth * (${bars} - 1) + cellWidth / 2;
+    scroller.scrollLeft = Math.max(0, x - 200);
+    scroller.scrollTop = Math.max(0, 22 * 23 - 160);
+    const r = document.getElementById('grid').getBoundingClientRect();
+    return { x: r.left + x, y: r.top + 22 * 23 + 11 };
+  })()`);
+  let p = await point(start);
+  await click(p.x, p.y); // C4 no 1º tempo do último compasso
+  await waitFor(`window.__beatProductor.store.get().bars === ${start + 1}`, 2000, 'grid ganhou um compasso');
+  assert.equal(await evaluate('document.getElementById("bars-input").value'), String(start + 1));
+  assert.equal(await evaluate('document.querySelectorAll("#ruler .ruler-label").length'), start + 1);
+  // De novo no novo último compasso: cresce outra vez.
+  p = await point(start + 1);
+  await click(p.x, p.y);
+  await waitFor(`window.__beatProductor.store.get().bars === ${start + 2}`, 2000, 'grid ganhou outro compasso');
+  // Passa de 16 sem travar.
+  await setControl('bars-input', 20);
+  assert.equal(await evaluate('window.__beatProductor.store.get().bars'), 20);
+  // Limpa: desfaz as duas notas e volta ao tamanho original.
+  await pressKey('KeyZ', 'z', 90, 2);
+  await pressKey('KeyZ', 'z', 90, 2);
+  await waitFor(`!${notesOf('piano')}.some(n => n.start >= ${start - 1} * window.__beatProductor.getLayout().lengthTicks / window.__beatProductor.getLayout().bars)`, 2000, 'notas desfeitas');
+  await setControl('bars-input', original);
+  await evaluate("document.getElementById('roll-scroll').scrollLeft = 0");
+});
+
 await check('compasso 3/4: régua com 3 tempos, compasso de 36 ticks e posição 2.1', async () => {
   await setControl('meter-select', '3/4');
   const layout = await evaluate('window.__beatProductor.getLayout()');

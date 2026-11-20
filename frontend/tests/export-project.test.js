@@ -33,12 +33,12 @@ test('exportação sem notas é bloqueada com mensagem clara', () => {
 });
 
 test('exportação longa demais é bloqueada antes de chamar o servidor', () => {
-  // Pausa no último tick de 16 compassos a 40 BPM = 96 s; × 32 loops = 3072 s > 600 s
-  const seq = sequenceWithNote(16 * 48);
-  seq.addRest({ instrument: 'piano', midi: 60, start: 16 * 48 - 3, duration: 3 });
+  // Pausa no último tick de 64 compassos a 40 BPM = 384 s; × 32 loops = 12288 s > 1800 s
+  const seq = sequenceWithNote(64 * 48);
+  seq.addRest({ instrument: 'piano', midi: 60, start: 64 * 48 - 3, duration: 3 });
   const result = buildExportPayload(seq, settings({ bpm: 40, loop: true, loops: 32 }));
   assert.equal(result.ok, false);
-  assert.match(result.error, /máximo 600 s/);
+  assert.match(result.error, /máximo 1800 s/);
   // Sem loop o mesmo projeto passa.
   assert.equal(buildExportPayload(seq, settings({ bpm: 40, loop: false, loops: 32 })).ok, true);
 });

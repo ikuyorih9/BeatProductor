@@ -11,6 +11,9 @@
   --line-cell: rgba(148, 163, 184, 0.10);
   --line-beat: rgba(148, 163, 184, 0.24);
   --line-bar: rgba(148, 163, 184, 0.50);
+  /* Tracejado horizontal entre as notas: dá para seguir a linha até o fim da música. */
+  --line-row: rgba(148, 163, 184, 0.28);
+  --line-row-c: rgba(96, 165, 250, 0.55);
   --playhead: #f43f5e;
   color-scheme: dark;
 }
@@ -114,9 +117,9 @@ html, body { height: 100%; }
 }
 
 /* ---------- Grid ---------- */
-.grid-row { height: var(--row-height); background: var(--grid-bg); border-bottom: 1px solid #111b2e; }
+.grid-row { height: var(--row-height); background: var(--grid-bg); border-bottom: 1px dashed var(--line-row); }
 .grid-row.is-black { background: var(--grid-bg-black); }
-.grid-row.is-c { border-bottom: 2px solid #1e3a5f; }
+.grid-row.is-c { border-bottom: 2px dashed var(--line-row-c); }
 .grid-row.is-disabled {
   background: repeating-linear-gradient(135deg, rgba(71, 85, 105, 0.32) 0 6px, rgba(51, 65, 85, 0.18) 6px 12px);
 }

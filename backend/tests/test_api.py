@@ -108,12 +108,12 @@ def test_export_without_events_returns_silence(client):
         {"events": [{"time": 0, "note": "C4", "duration": 0.5, "instrument": "piano", "gain": -0.1}]},
         {"events": [{"time": 0, "note": "C4", "duration": 0.5, "instrument": "piano", "gain": 4.5}]},
         {"length": 0},
-        {"length": 500},
+        {"length": 2000},
         {"loops": 0},
         {"loops": 99},
         {"format": "ogg"},
         {"bpm": 999},
-        {"length": 100, "loop": True, "loops": 10},
+        {"length": 100, "loop": True, "loops": 20},
     ],
 )
 def test_invalid_requests_are_rejected_with_422(client, overrides):
@@ -123,7 +123,7 @@ def test_invalid_requests_are_rejected_with_422(client, overrides):
 
 
 def test_total_duration_error_message_is_helpful(client):
-    response = client.post("/api/export", json=payload(length=100, loop=True, loops=10))
+    response = client.post("/api/export", json=payload(length=100, loop=True, loops=20))
     message = str(response.json()["detail"])
     assert "muito longo" in message
 

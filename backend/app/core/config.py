@@ -36,11 +36,13 @@ FORMATS = ("mp3", "wav")
 MP3_BITRATE = 192
 
 # Limites de validação — protegem o servidor de pedidos enormes.
-MAX_EVENTS = 5_000
+# O grid não tem limite prático de compassos; o arquivo exportado vai até 30 minutos
+# (≈ 0,9 GB de memória no pico ao renderizar, medido).
+MAX_EVENTS = 50_000
 MAX_LOOPS = 32
-MAX_PATTERN_SECONDS = 120.0
-MAX_TOTAL_SECONDS = 600.0
-MAX_NOTE_SECONDS = 120.0
+MAX_PATTERN_SECONDS = 1800.0
+MAX_TOTAL_SECONDS = 1800.0
+MAX_NOTE_SECONDS = 1800.0
 
 #: Pico máximo do arquivo final (-1 dBFS), garante ausência de clipping.
 TARGET_PEAK = 0.891

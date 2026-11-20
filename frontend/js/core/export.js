@@ -7,7 +7,7 @@ import { VOLUME } from '../config.js';
 import { ticksToSeconds } from './timing.js';
 import { volumeToGain } from './volume.js';
 
-export const EXPORT_LIMITS = Object.freeze({ MAX_TOTAL_SECONDS: 600, MAX_EVENTS: 5000 });
+export const EXPORT_LIMITS = Object.freeze({ MAX_TOTAL_SECONDS: 1800, MAX_EVENTS: 50000 });
 
 /**
  * @returns {{ ok: true, payload: object } | { ok: false, error: string }}

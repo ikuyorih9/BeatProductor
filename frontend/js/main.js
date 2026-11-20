@@ -2,7 +2,7 @@
  * Ponto de entrada do frontend: cria o estado, os componentes e liga tudo.
  */
 import {
-  APP_BUILD, INSTRUMENT_IDS, INSTRUMENTS, LOWEST_MIDI, OCTAVES, ROW_HEIGHT,
+  APP_BUILD, BARS, INSTRUMENT_IDS, INSTRUMENTS, LOWEST_MIDI, OCTAVES, ROW_HEIGHT,
 } from './config.js';
 import { AudioEngine } from './audio/engine.js';
 import { AudioScheduler } from './audio/scheduler.js';
@@ -292,8 +292,22 @@ function syncLength() {
   transport.setLength(sequence.endTick());
 }
 
+/**
+ * O grid cresce sozinho: quando uma nota ou pausa chega ao último compasso, ganha mais um (sempre
+ * sobra um compasso vazio no fim). Só cresce — diminuir é sempre escolha do usuário. Desfazer e
+ * importar não mexem no tamanho (o projeto importado volta exatamente como foi salvo).
+ */
+let importingProject = false;
+function growGridToFitContent() {
+  if (restoringHistory || importingProject || !sequence.hasItems) return;
+  const { bars, meter } = store.get();
+  const needed = Math.min(BARS.MAX, Math.ceil(sequence.endTick() / lengthInTicks(1, meter)) + 1);
+  if (needed > bars) store.set({ bars: needed });
+}
+
 function onSequenceChanged() {
   recordHistory();
+  growGridToFitContent();
   syncLength();
   grid.renderNotes();
   updateStatus();
@@ -494,7 +508,12 @@ async function importProjectFile(file) {
   sequence.setLength(gridLength());
   transport.setGridLength(gridLength());
   sequence.loadJSON(result.items);
-  onSequenceChanged();
+  importingProject = true;
+  try {
+    onSequenceChanged();
+  } finally {
+    importingProject = false;
+  }
   seek(0);
   const notes = result.items.length;
   const notices = result.notices.length ? ` ${result.notices.join('; ')}.` : '';

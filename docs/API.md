@@ -26,7 +26,7 @@ Renderiza a sequência e devolve o arquivo de áudio (download).
 
 | Campo | Tipo | Regra | Descrição |
 |---|---|---|---|
-| `events` | lista | até 5000 | Notas da sequência (ver abaixo) |
+| `events` | lista | até 50000 | Notas da sequência (ver abaixo) |
 | `length` | número | 0 < x ≤ 120 | Duração de **uma** passada do padrão, em segundos |
 | `loop` | booleano | padrão `false` | Se `true`, repete o padrão `loops` vezes |
 | `loops` | inteiro | 1 – 32 | Repetições (ignorado quando `loop` = `false`) |
@@ -43,7 +43,7 @@ Cada evento:
 | `instrument` | texto | `piano`, `drums`, `bass`, `lofi` ou `lead`. O `bass` soa **duas oitavas** abaixo da `note` e aceita de `E3` para cima (`E3` → E1, 41 Hz; abaixo disso, 422 com mensagem clara) |
 | `gain` | número (opcional) | 0 ≤ x ≤ 4 — ganho linear do instrumento no mixer (padrão 1 = 100%; 0 = mudo; o app envia (volume%/100)², então 200% = 4). O servidor aplica por cima a calibração de cada instrumento e de cada peça da bateria. |
 
-Campos desconhecidos são rejeitados. A duração total (`length × repetições`) não pode passar de **600 s**.
+Campos desconhecidos são rejeitados. A duração total (`length × repetições`) não pode passar de **1800 s** (30 minutos).
 
 ```json
 {

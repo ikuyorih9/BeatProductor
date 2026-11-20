@@ -718,6 +718,39 @@ colcheia (4) não dividem o compasso.
 
 ---
 
+## 2026-11-20 — Tracejado entre as notas e grid que cresce sozinho
+
+**Pedidos:**
+1. "Pelo menos um tracejado horizontal pra eu saber em qual nota eu tô tocando lá no final da track."
+2. "Não ponha limite de tempo. Deixe o limite na tela, mas assim que um bloco de tempo surgir, você adiciona mais um."
+
+**Tracejado:**
+- Cada linha do grid ganhou uma borda inferior **tracejada** e visível (`--line-row`, cinza a 28%). Antes era uma borda sólida quase da cor do fundo.
+- A linha do **C** (início de oitava) é tracejada em azul (`--line-row-c`).
+- A borda é da própria linha, então vai de ponta a ponta do grid, qualquer que seja o tamanho.
+
+**Grid sem limite e que cresce:**
+- `BARS.MAX` passou de 16 para 999 (limite técnico só para o campo).
+- O campo **Compassos** continua na tela.
+- `growGridToFitContent()` roda a cada edição. Se o fim da última nota ou pausa entra no último compasso, `bars = ceil(fim / compasso) + 1`, então sempre sobra um compasso vazio.
+- O grid **só cresce**: diminuir é escolha do usuário.
+- Desfazer e importar não mexem no tamanho, para o projeto importado voltar exatamente como foi salvo.
+- O play e a exportação continuam indo até o **FIM** da música, não até o fim do grid: o compasso vazio extra não vira silêncio no MP3.
+
+**Limites de exportação:**
+- Com o grid sem teto, os 600 s (10 min) apertavam. Medi uma renderização de 30 minutos com 3600 notas: 1,5 s e ~0,9 GB de pico de memória.
+- Novos limites, iguais no servidor e na pré-validação do navegador:
+  - padrão e total até **1800 s**;
+  - nota até 1800 s;
+  - **50 000** eventos.
+
+**Testes:**
+- E2E: tracejado nas linhas comuns e na do C, de largura igual à do grid.
+- E2E: uma nota no último compasso faz o grid ganhar um compasso (campo e régua atualizados), e isso se repete no compasso novo; passar de 16 funciona; Ctrl+Z desfaz as notas.
+- pytest e `node:test`: limites novos (2000 s recusado com 422; a mensagem "máximo 1800 s").
+
+---
+
 ## Resumo final
 
 | Requisito | Onde |
@@ -733,4 +766,4 @@ colcheia (4) não dividem o compasso.
 | RNF02 Sem build/dependências pesadas | Vanilla JS em ES Modules + Tailwind via CDN, zero pacotes npm |
 | RNF03 MP3 limpo, sem cortes no loop | overlap-add, normalização −1 dBFS, fades de borda |
 
-**Totais:** 171 testes pytest · 116 testes `node:test` · 46 verificações E2E em navegador real.
+**Totais:** 171 testes pytest · 116 testes `node:test` · 48 verificações E2E em navegador real.

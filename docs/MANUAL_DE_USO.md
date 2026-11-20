@@ -105,7 +105,7 @@ Quando aparecer *"Beat Productor rodando em http://127.0.0.1:8000"*, abra esse e
 | **Instrumento** | Instrumento das novas notas: Piano Acústico, Bateria, Baixo, Lofi Synth ou Lead Synth. A faixa colorida à esquerda do seletor é a cor das notas desse instrumento. As notas dos outros instrumentos continuam no grid, esmaecidas. |
 | **Compasso** | Fórmula de compasso da partitura: `2/4`, `3/4`, `4/4` (padrão), `5/4`, `3/8`, `5/8`, `6/8`, `7/8`, `9/8`, `12/8`. Define as barras de compasso, os tempos da régua e a posição *compasso.tempo*. Trocar **não move** as notas. Em 3/8, 5/8, 7/8 e 9/8 a célula de semínima e a de tercina de colcheia não cabem no compasso e ficam desabilitadas (o app muda para colcheia e avisa). |
 | **BPM (♩)** | Andamento em **semínimas por minuto**, de 40 a 240 (padrão 120) — o mesmo número da indicação de metrônomo "♩ = 120" da partitura. Muda em tempo real. Veja 4.7 para compassos 6/8. |
-| **Compassos** | Tamanho da sequência (1 a 16; padrão 4). Diminuir não apaga notas: elas reaparecem ao aumentar de novo. |
+| **Compassos** | Tamanho do grid (padrão 4, sem limite prático: até 999). **Cresce sozinho:** quando você põe uma nota ou pausa no último compasso, o grid ganha mais um, então sempre sobra um compasso vazio para continuar. Você pode mudar o número à mão quando quiser. Diminuir não apaga notas: elas reaparecem ao aumentar de novo. Desfazer (Ctrl+Z) não encolhe o grid. |
 | **Célula** | A **figura** de cada célula do grid, com o nome da partitura: `1/4` semínima ♩, `1/8` colcheia ♪, `1/8 tercina`, `1/16` semicolcheia (padrão), `1/16 tercina`. Um clique = uma nota dessa figura. Trocar a célula **não altera** as notas já criadas. |
 | **Loop** + número | Liga a repetição contínua da reprodução. O número ao lado (1 a 32) é a quantidade de repetições no arquivo exportado. |
 | **Importar** / **Exportar projeto** | Abre / salva o projeto inteiro num arquivo de texto (ver seção 6). |
@@ -127,7 +127,8 @@ Quando aparecer *"Beat Productor rodando em http://127.0.0.1:8000"*, abra esse e
 
 - Cada **linha** é uma nota: 3 oitavas, de **B5** (topo) a **C3** (base). A tecla à esquerda mostra o nome.
 - Linhas finas = células; linhas médias = tempos do compasso; linhas fortes = barras de compasso.
-- Linhas horizontais destacadas marcam o início de cada oitava (nota **C**).
+- Um **tracejado horizontal** separa cada nota de ponta a ponta do grid: dá para seguir a linha até o fim da música
+  sem perder de vista em que nota você está. O tracejado **azul** marca o início de cada oitava (nota **C**).
 - A **régua** no topo numera os compassos; clicar nela move o cursor.
 
 ### 3.4 Rodapé
@@ -308,7 +309,7 @@ O que entra no arquivo:
 - Depois da última repetição, a cauda das notas (release) é preservada por até 2 s.
 - O volume é normalizado automaticamente para não distorcer (pico em −1 dBFS).
 
-Limites: o arquivo final pode ter até **10 minutos** (600 s). Se passar disso, o app avisa antes de exportar —
+Limites: o arquivo final pode ter até **30 minutos** (1800 s). Se passar disso, o app avisa antes de exportar —
 reduza os loops ou os compassos, ou aumente o BPM. Uma sequência sem notas (só pausas ou vazia) não é exportada.
 O volume de cada instrumento no **mixer** vale também no MP3.
 
@@ -439,7 +440,7 @@ Os atalhos ficam desativados enquanto você digita num campo (BPM, Compassos, Lo
 | Som falha com a aba em segundo plano | O navegador reduz os timers de abas ocultas; mantenha a aba visível durante a reprodução. |
 | "Servidor indisponível" ao exportar | O terminal com o `run.ps1`/`run.sh` foi fechado. Inicie-o de novo e recarregue a página. |
 | "API de exportação não encontrada" | A página foi aberta por outro servidor (ou `file://`). Abra pelo endereço mostrado pelo script. |
-| "O áudio teria N s (máximo 600 s)" | Reduza loops ou compassos, ou aumente o BPM. |
+| "O áudio teria N s (máximo 1800 s)" | Reduza loops ou compassos, ou aumente o BPM. |
 | Página em branco ou sem estilo | Verifique a conexão com a internet (o Tailwind é carregado via CDN) e se abriu por `http://`, não `file://`. |
 | BPM volta para outro valor | Valores fora da faixa 40–240 são corrigidos automaticamente ao sair do campo. |
 | A música copiada da partitura ficou rápida/lenta demais | Confira a **Célula** e o **BPM (♩)** — veja a seção 4.7. Em 6/8, a partitura costuma indicar ♩. (use BPM × 1,5). |

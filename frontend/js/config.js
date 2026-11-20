@@ -13,7 +13,7 @@
  * antigos do cache, o número não bate e a página busca os arquivos de novo (ver index.html).
  * Aumente junto com APP_BUILD do index.html quando os módulos mudarem (um teste confere).
  */
-export const APP_BUILD = 8;
+export const APP_BUILD = 9;
 
 export const TICKS_PER_BEAT = 12; // ticks por semínima
 /** Ticks de uma semibreve (4 semínimas) — base para converter figuras: 1/8 de semibreve = 6 ticks. */
@@ -56,7 +56,11 @@ export const FALLBACK_DIVISION = '1/8';
 export const DEFAULT_METER = '4/4';
 
 export const BPM = Object.freeze({ MIN: 40, MAX: 240, DEFAULT: 120 });
-export const BARS = Object.freeze({ MIN: 1, MAX: 16, DEFAULT: 4 });
+/**
+ * Compassos do grid. Sem limite prático: quando uma nota ou pausa chega ao último compasso, o grid
+ * ganha mais um sozinho (sempre sobra um compasso vazio no fim para continuar compondo).
+ */
+export const BARS = Object.freeze({ MIN: 1, MAX: 999, DEFAULT: 4 });
 export const LOOPS = Object.freeze({ MIN: 1, MAX: 32, DEFAULT: 4 });
 /**
  * Volume de cada instrumento no mixer, em % (100 = calibrado; até 200 para reforçar).
