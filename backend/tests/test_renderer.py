@@ -128,6 +128,9 @@ def _short_term_db(signal):
 DRUM_BALANCE = {
     "D#4": ("caixa", 2, 5), "E4": ("chimbal", 10, 14), "F4": ("surdo", 0, 2.5), "F#4": ("tom 2", 0, 2.5),
     "G4": ("tom 1", 0, 2.5), "G#4": ("ride", 8, 12), "A4": ("prato de ataque", 2.5, 6),
+    "A3": ("pandeirola", 7, 11), "A#3": ("jam block", 6, 10), "B3": ("cowbell", 5, 9),
+    "C4": ("rototons", 0, 3), "C#4": ("octobans", 0, 3), "A#4": ("splash", 3, 7),
+    "B4": ("china", 2, 6), "C5": ("stack", 3, 7), "C#5": ("bell", 7, 11),
 }
 
 

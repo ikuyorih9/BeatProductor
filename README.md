@@ -12,7 +12,7 @@
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind%20CSS-06B6D4?logo=tailwindcss&logoColor=white">
   <img alt="HTML5" src="https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white">
   <br>
-  <img alt="Testes" src="https://img.shields.io/badge/testes-274%20passando-22c55e">
+  <img alt="Testes" src="https://img.shields.io/badge/testes-308%20passando-22c55e">
   <img alt="Lançador Windows" src="https://img.shields.io/badge/Windows-BeatProductor.exe-0078D6?logo=windows&logoColor=white">
   <img alt="Licença MIT" src="https://img.shields.io/badge/licen%C3%A7a-MIT-blue">
   <img alt="Idioma" src="https://img.shields.io/badge/idioma-pt--BR-009c3b">
@@ -34,14 +34,15 @@ O **Beat Productor** é um aplicativo web para **montar beats e melodias rapidam
 *piano roll*. Cada linha é uma nota (3 oitavas, de C3 a B5) e cada coluna é um pedaço de tempo. Você clica para
 criar notas, ouve na hora pelo navegador e exporta o resultado em **MP3**.
 
-- **4 instrumentos sintetizados:** Piano Acústico, Bateria (8 peças: bumbo, caixa, chimbal, surdo, tom 1, tom 2, ride e prato de ataque), Lofi Synth e Lead Synth.
+- **4 instrumentos sintetizados:** Piano Acústico, Bateria (17 peças: bumbo, caixa, chimbal, surdo, tom 1, tom 2, ride, prato de ataque, splash, china, stack, bell, octobans, rototons, cowbell, jam block e pandeirola), Lofi Synth e Lead Synth.
 - **Pensado para quem lê partitura:** fórmula de compasso (2/4 a 12/8), células com o nome da figura
   (semínima, colcheia, semicolcheia, tercinas) e BPM em semínimas, como no metrônomo.
 - **Edição completa:**
   - desenhar, selecionar com retângulo, **unir** e **separar** notas (ligaduras);
   - **pausas**;
   - mover a seleção arrastando ou com as setas;
-  - **Ctrl+C / Ctrl+V**.
+  - **Ctrl+C / Ctrl+V**;
+  - **Ctrl+Z** desfaz e **Ctrl+Y** refaz.
 - **Mixer** com volume por instrumento, já calibrado para soar equilibrado, com limitador que impede distorção.
 - **Loop** sem cortes entre as repetições, tanto no navegador quanto no MP3 exportado.
 - **Arquivo de projeto em texto:** exporte, edite à mão (ou escreva uma música inteira) e importe de volta, exatamente igual.
@@ -112,9 +113,9 @@ powershell -ExecutionPolicy Bypass -File scripts\test.ps1   # ou: scripts/test.s
 
 | Suíte | Quantidade |
 |---|---|
-| Backend (pytest) | 128 testes |
-| Frontend (`node:test`) | 104 testes |
-| E2E (Chrome/Edge headless) | 42 verificações |
+| Backend (pytest) | 155 testes |
+| Frontend (`node:test`) | 109 testes |
+| E2E (Chrome/Edge headless) | 44 verificações |
 
 O E2E abre o app num navegador real e testa com cliques, arrastes e teclas de verdade. Ele confere também o
 áudio sintetizado (equilíbrio, ausência de distorção) e uma exportação MP3 completa.

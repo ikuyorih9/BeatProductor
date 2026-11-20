@@ -56,11 +56,20 @@ const ALIASES_BY_PIECE = Object.freeze({
   tom1: ['tom-1', 'tom1'],
   ride: ['ride', 'conducao'],
   crash: ['ataque', 'prato-de-ataque', 'prato', 'crash'],
+  tambourine: ['pandeirola', 'tamborim', 'tambourine'],
+  jam_block: ['jam-block', 'jamblock', 'bloco'],
+  cowbell: ['cowbell', 'campana'],
+  rototoms: ['rototons', 'rototom', 'rototoms'],
+  octobans: ['octobans', 'octoban'],
+  splash: ['splash'],
+  china: ['china'],
+  stack: ['stack'],
+  bell: ['bell', 'sino'],
 });
 const DRUM_ALIASES = Object.freeze(Object.fromEntries(
   DRUM_PIECES.flatMap((piece) => ALIASES_BY_PIECE[piece.id].map((alias) => [alias, piece.midi])),
 ));
-const DRUM_ALIAS_HINT = 'bumbo, caixa, chimbal, surdo, tom-2, tom-1, ride, ataque';
+const DRUM_ALIAS_HINT = 'bumbo, caixa, chimbal, surdo, tom-2, tom-1, ride, ataque, splash, china, stack, bell, octobans, rototons, cowbell, jam-block, pandeirola';
 const DEFAULT_REST_MIDI = 60;
 const MAX_ERRORS = 8;
 

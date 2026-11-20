@@ -1,4 +1,4 @@
-"""Síntese dos 4 instrumentos (a bateria com 8 peças) com NumPy/SciPy.
+"""Síntese dos 4 instrumentos (a bateria com 17 peças) com NumPy/SciPy.
 
 Cada função devolve um array mono ``float32`` com a nota completa,
 incluindo a cauda (release). Os parâmetros espelham
@@ -157,6 +157,8 @@ TOMS = {
     "floor_tom": {"start": 120.0, "end": 82.0, "glide": 0.2, "decay": 0.7},
     "tom2": {"start": 165.0, "end": 118.0, "glide": 0.18, "decay": 0.55},
     "tom1": {"start": 220.0, "end": 160.0, "glide": 0.16, "decay": 0.45},
+    "rototoms": {"start": 290.0, "end": 175.0, "glide": 0.25, "decay": 0.4},
+    "octobans": {"start": 340.0, "end": 290.0, "glide": 0.08, "decay": 0.3},
 }
 
 
@@ -173,19 +175,27 @@ def _tom(sr: int, start: float, end: float, glide: float, decay: float, seed: in
 #: Frequências das 6 ondas quadradas do timbre metálico dos pratos (= frontend METAL_FREQUENCIES).
 METAL_FREQUENCIES = (205.3, 304.4, 369.6, 522.7, 540.0, 800.0)
 
-#: Pratos: nível do metal, corte do metal, nível do ruído, decaimento (= frontend CYMBALS).
+#: Pratos: nível do metal, corte do metal, nível do ruído, decaimento, multiplicador das frequências
+#: do metal e corte do ruído (= frontend CYMBALS).
 CYMBALS = {
     "ride": {"metal": 0.3, "metal_cutoff": 5000.0, "noise": 0.08, "decay": 1.6},
     "crash": {"metal": 0.2, "metal_cutoff": 6000.0, "noise": 0.35, "decay": 1.8},
+    "splash": {"metal": 0.2, "metal_cutoff": 7000.0, "noise": 0.3, "decay": 0.7, "scale": 1.4},
+    "china": {"metal": 0.35, "metal_cutoff": 2500.0, "noise": 0.25, "noise_cutoff": 3000.0, "decay": 1.3,
+              "scale": 0.82},
+    "stack": {"metal": 0.3, "metal_cutoff": 3500.0, "noise": 0.4, "noise_cutoff": 3500.0, "decay": 0.35,
+              "scale": 1.27},
 }
+_CYMBAL_SEEDS = {"ride": 5, "crash": 6, "splash": 8, "china": 9, "stack": 10}
 
 
-@lru_cache(maxsize=4)
-def _metal(n: int, sr: int) -> np.ndarray:
+@lru_cache(maxsize=16)
+def _metal(n: int, sr: int, scale: float = 1.0) -> np.ndarray:
     """Soma das ondas quadradas, com banda limitada (só harmônicos abaixo de Nyquist, como no navegador)."""
     t = _time(n, sr)
     out = np.zeros(n)
-    for freq in METAL_FREQUENCIES:
+    for base in METAL_FREQUENCIES:
+        freq = base * scale
         k = 1
         while k * freq < sr / 2:
             out += (4.0 / np.pi) * np.sin(TWO_PI * k * freq * t) / k
@@ -194,17 +204,40 @@ def _metal(n: int, sr: int) -> np.ndarray:
     return out
 
 
-def _cymbal(sr: int, metal: float, metal_cutoff: float, noise: float, decay: float, seed: int) -> np.ndarray:
+def _cymbal(sr: int, metal: float, metal_cutoff: float, noise: float, decay: float, seed: int,
+            scale: float = 1.0, noise_cutoff: float = 5000.0) -> np.ndarray:
     n = int((decay + 0.02) * sr)
     t = _time(n, sr)
-    tone = _filter(_metal(n, sr), "highpass", metal_cutoff, sr) * (metal / len(METAL_FREQUENCIES))
-    hiss = _filter(_noise(n, seed), "highpass", 5000.0, sr) * noise
+    tone = _filter(_metal(n, sr, scale), "highpass", metal_cutoff, sr) * (metal / len(METAL_FREQUENCIES))
+    hiss = _filter(_noise(n, seed), "highpass", noise_cutoff, sr) * noise
     env = np.where(t < 0.002, t / 0.002, _exp_decay(np.maximum(t - 0.002, 0), 1.0, decay - 0.002))
     return (tone + hiss) * env
 
 
+#: Percussão "afinada": senos (Hz, nível) com um envelope de golpe + ruído agudo opcional (= frontend PINGS).
+PINGS = {
+    "bell": {"partials": ((740.0, 0.45), (1716.0, 0.3), (2886.0, 0.18), (4100.0, 0.1)), "decay": 1.3},
+    "cowbell": {"partials": ((540.0, 0.5), (800.0, 0.5), (1620.0, 0.17), (2400.0, 0.17)), "decay": 0.35},
+    "jam_block": {"partials": ((880.0, 0.6), (2030.0, 0.25), (3200.0, 0.08)), "decay": 0.12},
+    "tambourine": {"partials": ((5400.0, 0.06), (6800.0, 0.06), (8100.0, 0.05), (9600.0, 0.05)), "decay": 0.3,
+                   "noise": 0.4, "noise_cutoff": 6000.0},
+}
+
+
+def _ping(sr: int, partials: tuple, decay: float, noise: float = 0.0, noise_cutoff: float = 6000.0) -> np.ndarray:
+    n = int((decay + 0.02) * sr)
+    t = _time(n, sr)
+    tone = np.zeros(n)
+    for freq, level in partials:
+        tone += level * np.sin(TWO_PI * freq * t)
+    if noise > 0:
+        tone += _filter(_noise(n, 7), "highpass", noise_cutoff, sr) * noise
+    env = np.where(t < 0.001, t / 0.001, _exp_decay(np.maximum(t - 0.001, 0), 1.0, decay - 0.001))
+    return tone * env
+
+
 def drums(midi: int, duration: float, sr: int = SAMPLE_RATE) -> np.ndarray:  # noqa: ARG001 (one-shot)
-    """Bateria one-shot: cada tecla do kit (D4 a A4) é uma peça; a duração é ignorada."""
+    """Bateria one-shot: cada tecla do kit (A3 a C#5) é uma peça; a duração é ignorada."""
     piece = drum_piece_for_midi(midi)
     if piece == "kick":
         signal = _kick(sr)
@@ -215,9 +248,11 @@ def drums(midi: int, duration: float, sr: int = SAMPLE_RATE) -> np.ndarray:  # n
     elif piece in TOMS:
         signal = _tom(sr, **TOMS[piece], seed=4)
     elif piece in CYMBALS:
-        signal = _cymbal(sr, **CYMBALS[piece], seed=5 if piece == "ride" else 6)
+        signal = _cymbal(sr, **CYMBALS[piece], seed=_CYMBAL_SEEDS[piece])
+    elif piece in PINGS:
+        signal = _ping(sr, **PINGS[piece])
     else:
-        raise ValueError(f"A tecla MIDI {midi} não faz parte da bateria (use D4 a A4).")
+        raise ValueError(f"A tecla MIDI {midi} não faz parte da bateria (use A3 a C#5).")
     return _fade_tail(signal.astype(np.float32), sr)
 
 

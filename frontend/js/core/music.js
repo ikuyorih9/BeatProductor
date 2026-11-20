@@ -81,9 +81,10 @@ export function migrateLegacyDrumMidi(midi) {
  * tecla da mesma peça no kit atual (centralizado); tecla fora daquele kit fica como está.
  */
 export const BOTTOM_KIT_LOWEST_MIDI = 48;
+const BOTTOM_KIT_ORDER = Object.freeze(['kick', 'snare', 'hihat', 'floor_tom', 'tom2', 'tom1', 'ride', 'crash']);
 export function migrateBottomKitMidi(midi) {
-  const index = midi - BOTTOM_KIT_LOWEST_MIDI;
-  return index >= 0 && index < DRUM_PIECES.length ? DRUM_PIECES[index].midi : midi;
+  const id = BOTTOM_KIT_ORDER[midi - BOTTOM_KIT_LOWEST_MIDI];
+  return id ? DRUM_BY_ID.get(id).midi : midi;
 }
 
 /**

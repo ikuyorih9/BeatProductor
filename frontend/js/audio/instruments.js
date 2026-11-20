@@ -131,13 +131,17 @@ function hihat(ctx, when, noiseBuffer, decay) {
 }
 
 /**
- * Tons (surdo, tom 2, tom 1): seno com queda de afinação de `from` para `to` Hz e um estalo
+ * Tons (surdo, tom 2, tom 1, rototons, octobans): seno com queda de afinação de `from` para `to` Hz e um estalo
  * curto de baqueta (ruído agudo) no ataque.
  */
 export const TOMS = Object.freeze({
   floor_tom: { from: 120, to: 82, glide: 0.2, decay: 0.7 },
   tom2: { from: 165, to: 118, glide: 0.18, decay: 0.55 },
   tom1: { from: 220, to: 160, glide: 0.16, decay: 0.45 },
+  // Rototons: tons sem casco, afinação mais aguda e queda de afinação bem audível.
+  rototoms: { from: 290, to: 175, glide: 0.25, decay: 0.4 },
+  // Octobans: tubos estreitos e agudos, curtos.
+  octobans: { from: 340, to: 290, glide: 0.08, decay: 0.3 },
 });
 
 function tom(ctx, when, noiseBuffer, { from, to, glide, decay }) {
@@ -165,13 +169,22 @@ function tom(ctx, when, noiseBuffer, { from, to, glide, decay }) {
 /** Frequências (Hz) das 6 ondas quadradas do timbre metálico dos pratos (estilo TR-808). */
 export const METAL_FREQUENCIES = Object.freeze([205.3, 304.4, 369.6, 522.7, 540, 800]);
 
-/** Pratos: ondas quadradas desafinadas entre si (metal) + ruído, filtrados no agudo. */
+/**
+ * Pratos: ondas quadradas desafinadas entre si (metal) + ruído, filtrados no agudo.
+ * `scale` multiplica as frequências do metal (prato menor = mais agudo); `noiseCutoff` é o corte do ruído.
+ */
 export const CYMBALS = Object.freeze({
   ride: { metal: 0.3, metalCutoff: 5000, noise: 0.08, decay: 1.6 },
   crash: { metal: 0.2, metalCutoff: 6000, noise: 0.35, decay: 1.8 },
+  // Splash: prato pequeno, agudo e curto.
+  splash: { metal: 0.2, metalCutoff: 7000, noise: 0.3, decay: 0.7, scale: 1.4 },
+  // China: metal mais grave e "sujo", com ruído mais encorpado.
+  china: { metal: 0.35, metalCutoff: 2500, noise: 0.25, noiseCutoff: 3000, decay: 1.3, scale: 0.82 },
+  // Stack: pratos empilhados — seco, áspero e bem curto.
+  stack: { metal: 0.3, metalCutoff: 3500, noise: 0.4, noiseCutoff: 3500, decay: 0.35, scale: 1.27 },
 });
 
-function cymbal(ctx, when, noiseBuffer, { metal, metalCutoff, noise, decay }) {
+function cymbal(ctx, when, noiseBuffer, { metal, metalCutoff, noise, decay, scale = 1, noiseCutoff = 5000 }) {
   const output = ctx.createGain();
   const metalHighpass = ctx.createBiquadFilter();
   metalHighpass.type = 'highpass';
@@ -180,7 +193,7 @@ function cymbal(ctx, when, noiseBuffer, { metal, metalCutoff, noise, decay }) {
   metalGain.gain.value = metal / METAL_FREQUENCIES.length;
   metalHighpass.connect(metalGain).connect(output);
   const sources = METAL_FREQUENCIES.map((frequency) => {
-    const osc = oscillator(ctx, 'square', frequency);
+    const osc = oscillator(ctx, 'square', frequency * scale);
     osc.connect(metalHighpass);
     return osc;
   });
@@ -188,7 +201,7 @@ function cymbal(ctx, when, noiseBuffer, { metal, metalCutoff, noise, decay }) {
   const hiss = noiseSource(ctx, noiseBuffer);
   const noiseHighpass = ctx.createBiquadFilter();
   noiseHighpass.type = 'highpass';
-  noiseHighpass.frequency.value = 5000;
+  noiseHighpass.frequency.value = noiseCutoff;
   const noiseGain = ctx.createGain();
   noiseGain.gain.value = noise;
   hiss.connect(noiseHighpass).connect(noiseGain).connect(output);
@@ -200,6 +213,48 @@ function cymbal(ctx, when, noiseBuffer, { metal, metalCutoff, noise, decay }) {
   return { output, sources, endTime: when + decay + 0.02 };
 }
 
+/**
+ * Percussão "afinada": soma de senos (`partials` = [Hz, nível]) com um único envelope de golpe,
+ * mais ruído agudo opcional (`noise`, cortado em `noiseCutoff` Hz).
+ */
+export const PINGS = Object.freeze({
+  // Bell: o sino (cúpula) do prato — ataque metálico e sustentação longa.
+  bell: { partials: [[740, 0.45], [1716, 0.3], [2886, 0.18], [4100, 0.1]], decay: 1.3 },
+  // Cowbell: as duas frequências clássicas (540 e 800 Hz) com seus 3º harmônicos.
+  cowbell: { partials: [[540, 0.5], [800, 0.5], [1620, 0.17], [2400, 0.17]], decay: 0.35 },
+  // Jam block: bloco de plástico — estalo seco e agudo.
+  jam_block: { partials: [[880, 0.6], [2030, 0.25], [3200, 0.08]], decay: 0.12 },
+  // Pandeirola: platinelas (senos bem agudos) + chiado de metal.
+  tambourine: {
+    partials: [[5400, 0.06], [6800, 0.06], [8100, 0.05], [9600, 0.05]], decay: 0.3, noise: 0.4, noiseCutoff: 6000,
+  },
+});
+
+function ping(ctx, when, noiseBuffer, { partials, decay, noise = 0, noiseCutoff = 6000 }) {
+  const output = ctx.createGain();
+  const sources = partials.map(([frequency, level]) => {
+    const osc = oscillator(ctx, 'sine', frequency);
+    const gain = ctx.createGain();
+    gain.gain.value = level;
+    osc.connect(gain).connect(output);
+    return osc;
+  });
+  if (noise > 0) {
+    const hiss = noiseSource(ctx, noiseBuffer);
+    const highpass = ctx.createBiquadFilter();
+    highpass.type = 'highpass';
+    highpass.frequency.value = noiseCutoff;
+    const gain = ctx.createGain();
+    gain.gain.value = noise;
+    hiss.connect(highpass).connect(gain).connect(output);
+    sources.push(hiss);
+  }
+  output.gain.setValueAtTime(0, when);
+  output.gain.linearRampToValueAtTime(1, when + 0.001);
+  output.gain.exponentialRampToValueAtTime(0.001, when + decay);
+  return { output, sources, endTime: when + decay + 0.02 };
+}
+
 /** Bateria: cada tecla do kit é uma peça (ver DRUM_PIECES). Sons one-shot. */
 export function drums(ctx, { midi, when }, { noiseBuffer }) {
   const piece = drumPieceForMidi(midi);
@@ -207,9 +262,11 @@ export function drums(ctx, { midi, when }, { noiseBuffer }) {
     case 'kick': return kick(ctx, when);
     case 'snare': return snare(ctx, when, noiseBuffer);
     case 'hihat': return hihat(ctx, when, noiseBuffer, 0.08);
-    case 'floor_tom': case 'tom2': case 'tom1': return tom(ctx, when, noiseBuffer, TOMS[piece.id]);
-    case 'ride': case 'crash': return cymbal(ctx, when, noiseBuffer, CYMBALS[piece.id]);
-    default: throw new Error(`a tecla ${midi} não faz parte da bateria`);
+    default:
+      if (TOMS[piece?.id]) return tom(ctx, when, noiseBuffer, TOMS[piece.id]);
+      if (CYMBALS[piece?.id]) return cymbal(ctx, when, noiseBuffer, CYMBALS[piece.id]);
+      if (PINGS[piece?.id]) return ping(ctx, when, noiseBuffer, PINGS[piece.id]);
+      throw new Error(`a tecla ${midi} não faz parte da bateria`);
   }
 }
 

@@ -560,6 +560,51 @@ colcheia (4) não dividem o compasso.
 
 ---
 
+## 2026-11-19 — Ctrl+Z, 9 peças novas na bateria e teclas acesas só do instrumento aberto
+
+**Pedido:**
+1. Ctrl+Z para desfazer.
+2. Completar a bateria: splash, china, stack, bell, octobans, rototons, cowbell, jam block e pandeirola.
+3. No play, as teclas da esquerda acendiam com as notas de todos os instrumentos. Mostrar só as do instrumento aberto, sem mudar o som.
+
+**Desfazer/refazer** (`frontend/js/core/history.js`, módulo puro):
+- Guarda "fotos" da lista de notas (JSON). Ctrl+Z desfaz; Ctrl+Y ou Ctrl+Shift+Z refaz; até 200 passos.
+- O registro fica em `onSequenceChanged`, por onde passa toda edição. Assim, desenhar, apagar, mover, unir, separar, colar, Limpar, Limpar tudo e Importar são desfeitos sem código específico para cada um.
+- **Um arrasto = um passo:** entre `pointerdown` e `pointerup` as mudanças são agrupadas. O registro acontece depois dos handlers do grid, porque a nota é criada no `pointerup`.
+- **Importar** também guarda as configurações anteriores (BPM, compasso, volumes…): o Ctrl+Z desfaz a importação inteira. As outras edições não guardam configurações, para que desfazer uma nota não volte o BPM.
+- Campos de texto (BPM etc.) continuam com o Ctrl+Z nativo do navegador.
+
+**Bateria com 17 peças** (A3 a C#5):
+- As 8 antigas **não mudaram de tecla** (D4 a A4), então nenhum projeto precisou de conversão.
+- As novas ficam em volta: percussão embaixo (pandeirola A3, jam block, cowbell, rototons, octobans C#4) e pratos em cima (splash A#4, china, stack, bell C#5).
+- O grid fica com 9 teclas desativadas abaixo e 10 acima.
+- `migrateBottomKitMidi` usava a posição na lista `DRUM_PIECES`, o que quebraria com as peças novas no começo. Passou a usar uma lista fixa de ids.
+- **Síntese**, espelhada no navegador e no servidor:
+  - rototons e octobans: o mesmo modelo dos tons (seno com queda de afinação), mais agudos;
+  - splash, china e stack: o modelo dos pratos, com dois parâmetros novos (`scale`, que multiplica as frequências do metal, e `noiseCutoff`);
+  - bell, cowbell, jam block e pandeirola: um modelo novo, `ping`, que é uma soma de senos com um envelope de golpe e ruído agudo opcional (as platinelas da pandeirola).
+- **Calibração:** o mesmo método da sessão anterior (intensidade em 50 ms relativa ao bumbo, pico ≤ 1,2× o do bumbo), medida separadamente no navegador e no servidor.
+  - Abaixo do bumbo: rototons e octobans −1,5 dB; china −4; splash e stack −5; cowbell −7; jam block −8; bell e pandeirola −9.
+  - O E2E confere que nenhuma das 17 peças satura.
+
+**Teclas acesas:** o destaque agendado só acende se a nota for do instrumento aberto no momento em que soa. O som não muda, e o E2E confere que o piano continua sendo agendado.
+- Verificação do teste: com a correção desligada, o E2E novo falha (a tecla da nota do piano acendia na bateria).
+
+**Testes:**
+- pytest:
+  - kit de 17 peças, centralização 9/10;
+  - equilíbrio e pico das 9 novas;
+  - exportação com as 17.
+- `node:test`:
+  - histórico (desfazer, refazer, limite, configurações da importação);
+  - kit, faixa, nomes das peças no arquivo de texto e arrasto preso ao kit.
+- E2E:
+  - Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z, com o arrasto desfeito num passo só e Limpar tudo desfeito;
+  - teclas acesas só do instrumento aberto;
+  - 17 peças na tela e no equilíbrio.
+
+---
+
 ## Resumo final
 
 | Requisito | Onde |
@@ -575,4 +620,4 @@ colcheia (4) não dividem o compasso.
 | RNF02 Sem build/dependências pesadas | Vanilla JS em ES Modules + Tailwind via CDN, zero pacotes npm |
 | RNF03 MP3 limpo, sem cortes no loop | overlap-add, normalização −1 dBFS, fades de borda |
 
-**Totais:** 128 testes pytest · 104 testes `node:test` · 42 verificações E2E em navegador real.
+**Totais:** 155 testes pytest · 109 testes `node:test` · 44 verificações E2E em navegador real.

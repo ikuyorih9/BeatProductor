@@ -13,7 +13,7 @@
  * antigos do cache, o número não bate e a página busca os arquivos de novo (ver index.html).
  * Aumente junto com APP_BUILD do index.html quando os módulos mudarem (um teste confere).
  */
-export const APP_BUILD = 4;
+export const APP_BUILD = 5;
 
 export const TICKS_PER_BEAT = 12; // ticks por semínima
 /** Ticks de uma semibreve (4 semínimas) — base para converter figuras: 1/8 de semibreve = 6 ticks. */
@@ -93,14 +93,21 @@ export const DEFAULT_INSTRUMENT = 'piano';
 export const INSTRUMENT_TRIM = Object.freeze({ piano: 0.85, drums: 1.5, lofi: 1.0, lead: 2.1 });
 
 /**
- * Kit de bateria: 8 peças, cada uma numa tecla fixa (D4 a A4, de baixo para cima), no CENTRO do
- * grid: 14 teclas desativadas acima e 14 abaixo. Só essas teclas valem na bateria.
+ * Kit de bateria: 17 peças, cada uma numa tecla fixa (A3 a C#5, de baixo para cima), no CENTRO do
+ * grid: 10 teclas desativadas acima e 9 abaixo. Só essas teclas valem na bateria.
+ * As 8 peças originais continuam nas mesmas teclas (D4 a A4); as novas ficam em volta delas:
+ * percussão embaixo (pandeirola … octobans) e pratos em cima (splash … bell).
  * `trim` = calibração da peça no navegador (ganho linear sobre INSTRUMENT_TRIM.drums), pela
  * intensidade de curto prazo (maior RMS em 50 ms, que é como se ouve um golpe curto) em relação
  * ao bumbo, com o pico de cada peça limitado a 1,2× o do bumbo (ver tests/e2e/smoke.mjs).
  * Mantenha em sincronia com backend/app/core/music.py (mesmas teclas) e config.py (trims do servidor).
  */
 export const DRUM_PIECES = Object.freeze([
+  { id: 'tambourine', label: 'Pandeirola', midi: 57, trim: 0.96 },
+  { id: 'jam_block', label: 'Jam block', midi: 58, trim: 0.84 },
+  { id: 'cowbell', label: 'Cowbell', midi: 59, trim: 0.53 },
+  { id: 'rototoms', label: 'Rototons', midi: 60, trim: 0.87 },
+  { id: 'octobans', label: 'Octobans', midi: 61, trim: 0.95 },
   { id: 'kick', label: 'Bumbo', midi: 62, trim: 1.0 },
   { id: 'snare', label: 'Caixa', midi: 63, trim: 1.36 },
   { id: 'hihat', label: 'Chimbal', midi: 64, trim: 1.6 },
@@ -109,6 +116,10 @@ export const DRUM_PIECES = Object.freeze([
   { id: 'tom1', label: 'Tom 1', midi: 67, trim: 0.9 },
   { id: 'ride', label: 'Ride', midi: 68, trim: 2.8 },
   { id: 'crash', label: 'Prato de ataque', midi: 69, trim: 1.43 },
+  { id: 'splash', label: 'Splash', midi: 70, trim: 1.67 },
+  { id: 'china', label: 'China', midi: 71, trim: 1.92 },
+  { id: 'stack', label: 'Stack', midi: 72, trim: 1.45 },
+  { id: 'bell', label: 'Bell', midi: 73, trim: 0.4 },
 ].map((piece) => Object.freeze(piece)));
 export const DRUM_LOWEST_MIDI = DRUM_PIECES[0].midi;
 export const DRUM_HIGHEST_MIDI = DRUM_PIECES[DRUM_PIECES.length - 1].midi;

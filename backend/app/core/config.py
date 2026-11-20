@@ -21,6 +21,8 @@ INSTRUMENT_TRIM = {"piano": 1.0, "drums": 1.9, "lofi": 1.0, "lead": 1.9}
 DRUM_PIECE_TRIM = {
     "kick": 1.0, "snare": 1.47, "hihat": 1.86, "floor_tom": 0.8,
     "tom2": 0.85, "tom1": 0.9, "ride": 3.1, "crash": 1.6,
+    "tambourine": 1.08, "jam_block": 0.84, "cowbell": 0.53, "rototoms": 0.87, "octobans": 0.95,
+    "splash": 2.02, "china": 2.18, "stack": 1.62, "bell": 0.4,
 }
 
 #: Ganho máximo por evento. O frontend usa curva perceptiva: ganho = (volume% / 100)²,

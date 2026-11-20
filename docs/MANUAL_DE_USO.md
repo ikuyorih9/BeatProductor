@@ -69,7 +69,7 @@ Quando aparecer *"Beat Productor rodando em http://127.0.0.1:8000"*, abra esse e
 
 ## 2. Seu primeiro beat em 2 minutos
 
-1. Em **Instrumento**, escolha **Bateria**. O kit fica no meio do grid, e a tela se centraliza nele: as 8 teclas mostram *Bumbo*, *Caixa*,
+1. Em **Instrumento**, escolha **Bateria**. O kit fica no meio do grid, e a tela se centraliza nele: as 17 teclas mostram *Bumbo*, *Caixa*,
    *Chimbal*… e as outras ficam riscadas (desativadas).
 2. Na linha **Bumbo** (D4, a de baixo do kit), clique na 1ª célula de cada compasso e na 3ª batida.
 3. Na linha **Caixa** logo acima (D#4), clique na 2ª e na 4ª batida de cada compasso.
@@ -198,13 +198,14 @@ Com notas selecionadas:
 | **Colar** | Posicione o cursor (clique na régua) e aperte **Ctrl+V**. O trecho é colado **no cursor**, no **instrumento atual** — dá para copiar uma melodia do piano e colar no lead. O cursor avança para o fim do trecho colado, então **Ctrl+V de novo cola logo em seguida** (ótimo para repetir um compasso). O que foi colado fica selecionado. |
 | **Selecionar tudo** | **Ctrl+A** (todas as notas do instrumento atual) |
 | **Apagar** | **🗑**, **Delete** ou **Backspace** |
+| **Desfazer / refazer** | **Ctrl+Z** desfaz a última edição; **Ctrl+Y** (ou **Ctrl+Shift+Z**) refaz. Vale para tudo que mexe nas notas: desenhar, apagar, mover, unir, separar, colar, Limpar, Limpar tudo e Importar (este volta também BPM, compasso etc.). Um arrasto inteiro conta como **um** passo. Guarda até 200 passos (o histórico some ao recarregar a página). |
 | **Separar** | **SEPARAR** ou **Shift+U**: corta cada nota selecionada nas divisas das células (o tamanho da célula atual). Para cortar em pedaços maiores, escolha uma célula maior antes. |
 
 ### 4.4 Ouvindo enquanto edita
 
 - **Clique numa tecla** (coluna da esquerda) para ouvir aquela nota no instrumento selecionado.
 - Ao **criar uma nota** com a reprodução parada, ela toca uma vez (pré-escuta).
-- Durante o **PLAY**, as teclas acendem quando suas notas soam e a tela rola acompanhando o cursor.
+- Durante o **PLAY**, as teclas acendem quando as notas **do instrumento aberto** soam (os outros instrumentos continuam tocando, só não acendem teclas) e a tela rola acompanhando o cursor.
 - O primeiro clique/PLAY libera o áudio (exigência dos navegadores). Se não ouvir nada, confira o volume do sistema.
 
 ### 4.5 Os instrumentos
@@ -212,17 +213,21 @@ Com notas selecionadas:
 | Instrumento | Timbre | Duração da nota |
 |---|---|---|
 | **Piano Acústico** | Percussivo, decai naturalmente (mais rápido nos agudos) | Soltar antes encurta; notas longas deixam o som decair |
-| **Bateria** | 8 peças: bumbo, caixa, chimbal, surdo, 2 tons, ride e prato de ataque (ver 4.6) | Ignorada (som *one-shot*) |
+| **Bateria** | 17 peças: bumbo, caixa, chimbal, surdo, 2 tons, ride, prato de ataque, splash, china, stack, bell, octobans, rototons, cowbell, jam block e pandeirola (ver 4.6) | Ignorada (som *one-shot*) |
 | **Lofi Synth** | Abafado e quente, com leve vibrato | Sustenta enquanto durar a nota |
 | **Lead Synth** | Brilhante (dente-de-serra), para melodias | Sustenta enquanto durar a nota |
 
 ### 4.6 Bateria
 
-Com **Bateria** selecionada, só as **8 teclas do kit** (D4 a A4, no **centro** do grid) ficam ativas, e a tela
-rola para deixá-las no meio. Cada tecla é uma peça:
+Com **Bateria** selecionada, só as **17 teclas do kit** (A3 a C#5, no **centro** do grid) ficam ativas, e a tela
+rola para deixá-las no meio. Cada tecla é uma peça — pratos em cima, tambores no meio, percussão embaixo:
 
 | Tecla | Peça | Som |
 |---|---|---|
+| C#5 | **Bell** | O sino (cúpula) do prato: "plim" metálico e longo |
+| C5  | **Stack** | Pratos empilhados: seco, áspero e bem curto |
+| B4  | **China** | Prato "sujo", mais grave e agressivo |
+| A#4 | **Splash** | Prato pequeno, agudo e curto |
 | A4  | **Prato de ataque** | Prato longo e brilhante, para marcar começos de frase |
 | G#4 | **Ride** | Prato de condução, metálico e mais contido |
 | G4  | **Tom 1** | Tom agudo |
@@ -231,8 +236,13 @@ rola para deixá-las no meio. Cada tecla é uma peça:
 | E4  | **Chimbal** | Chimbal fechado, curto |
 | D#4 | **Caixa** | |
 | D4  | **Bumbo** | Grave com "knock" médio, audível até em alto-falante de notebook |
+| C#4 | **Octobans** | Tons estreitos e agudos, curtos |
+| C4  | **Rototons** | Tons sem casco, com a afinação "caindo" bem audível |
+| B3  | **Cowbell** | Campana metálica |
+| A#3 | **Jam block** | Bloco de plástico: estalo seco e agudo |
+| A3  | **Pandeirola** | Platinelas: chiado metálico curto |
 
-- As outras 28 teclas (14 acima e 14 abaixo do kit) ficam **riscadas**: não tocam, não recebem notas nem pausas, e a seleção não pode ser
+- As outras 19 teclas (10 acima e 9 abaixo do kit) ficam **riscadas**: não tocam, não recebem notas nem pausas, e a seleção não pode ser
   arrastada (nem movida com as setas) para fora do kit. Ao colar na bateria notas copiadas de outras alturas, as
   que caem fora do kit ficam de fora (o app avisa).
 - Os outros instrumentos continuam com as 3 oitavas inteiras.
@@ -240,6 +250,8 @@ rola para deixá-las no meio. Cada tecla é uma peça:
   salvo no navegador quanto um arquivo `versao = 1` importado: cada nota vai para a tecla da mesma peça no kit
   novo (o antigo *hi-hat aberto* vira *chimbal*). Projetos com o kit embaixo (C3 a G3, arquivo `versao = 2`)
   sobem para D4 a A4 do mesmo jeito. Nomes de peça (`bumbo`, `caixa`…) nunca precisam de conversão.
+- As 9 peças novas entraram **em volta** do kit anterior: bumbo … prato de ataque continuam nas mesmas teclas
+  (D4 a A4), então nenhum projeto precisou ser convertido.
 
 ### 4.7 Copiando de uma partitura (BPM, compasso e figuras)
 
@@ -350,7 +362,7 @@ Cada nota é uma linha **`posição  nota  duração  [pausa]`**, separadas por 
 | Coluna | Formato | Exemplos |
 |---|---|---|
 | **posição** | `compasso.tempo`, com fração opcional do tempo depois de `+` | `1.1` (início) · `2.3` (3º tempo do 2º compasso) · `1.2+1/2` (meio do 2º tempo) |
-| **nota** | Nome científico, com `#` ou `b` | `C4` (dó central) · `F#3` · `Bb4`. Faixa: C3 a B5. Na **bateria**, só D4 a A4, ou o nome da peça: `bumbo`, `caixa`, `chimbal`, `surdo`, `tom-2`, `tom-1`, `ride`, `ataque`. |
+| **nota** | Nome científico, com `#` ou `b` | `C4` (dó central) · `F#3` · `Bb4`. Faixa: C3 a B5. Na **bateria**, só A3 a C#5, ou o nome da peça: `bumbo`, `caixa`, `chimbal`, `surdo`, `tom-2`, `tom-1`, `ride`, `ataque`, `splash`, `china`, `stack`, `bell`, `octobans`, `rototons`, `cowbell`, `jam-block`, `pandeirola`. |
 | **duração** | Em **tempos** do compasso: inteiro, fração, misto ou decimal | `1` · `2` · `1/2` · `1+1/2` · `1.5` · `1/3` (tercina) |
 | **pausa** | Opcional, no fim | Torna a linha uma pausa (bloco branco). Forma curta: `2.1  pausa  3`. |
 
@@ -384,6 +396,8 @@ Cada nota é uma linha **`posição  nota  duração  [pausa]`**, separadas por 
 | **Ctrl+C** / **Ctrl+X** | Copiar / recortar a seleção |
 | **Ctrl+V** | Colar no cursor (no instrumento atual) |
 | **Ctrl+A** | Selecionar todas as notas do instrumento atual |
+| **Ctrl+Z** | Desfazer a última edição |
+| **Ctrl+Y** / **Ctrl+Shift+Z** | Refazer |
 
 Os atalhos ficam desativados enquanto você digita num campo (BPM, Compassos, Loops).
 

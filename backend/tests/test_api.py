@@ -42,12 +42,12 @@ def test_drum_note_outside_the_kit_is_a_clear_422(client):
     response = client.post("/api/export", json=body)
     assert response.status_code == 422
     assert "não é uma peça da bateria" in response.text
-    assert "D4 a A4" in response.text
+    assert "A3 a C#5" in response.text
 
 
-def test_all_8_drum_pieces_export(client):
-    events = [{"time": i * 0.25, "note": n, "duration": 0.1, "instrument": "drums"}
-              for i, n in enumerate(["D4", "D#4", "E4", "F4", "F#4", "G4", "G#4", "A4"])]
+def test_all_17_drum_pieces_export(client):
+    notes = ["A3", "A#3", "B3", "C4", "C#4", "D4", "D#4", "E4", "F4", "F#4", "G4", "G#4", "A4", "A#4", "B4", "C5", "C#5"]
+    events = [{"time": i * 0.1, "note": n, "duration": 0.1, "instrument": "drums"} for i, n in enumerate(notes)]
     response = client.post("/api/export", json=payload(events=events, format="wav"))
     assert response.status_code == 200, response.text
 

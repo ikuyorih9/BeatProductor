@@ -10,6 +10,7 @@ import { buildExportPayload } from './core/export.js';
 import { computeLayout } from './core/layout.js';
 import { buildRange, isPlayable, playableRange } from './core/music.js';
 import { defaultSettings } from './core/project.js';
+import { UndoHistory } from './core/history.js';
 import { parseProjectFile, serializeProjectFile } from './core/project-file.js';
 import {
   clampMove, copyItems, countMergeableGroups, countSplittable, pasteItems,
@@ -64,6 +65,65 @@ const autosave = createAutosave(() => saveProject(store.get(), sequence));
 
 /** Área de transferência interna (Ctrl+C / Ctrl+V). */
 let clipboard = null;
+
+// ---------------------------------------------------------------- desfazer / refazer (Ctrl+Z / Ctrl+Y)
+const notesSnapshot = () => JSON.stringify(sequence.toJSON());
+/** Configurações do projeto (tudo menos a ferramenta) — guardadas quando uma ação as muda (importar). */
+const projectSettings = () => {
+  const { tool, ...settings } = store.get();
+  return settings;
+};
+const undoHistory = new UndoHistory({ notes: notesSnapshot() });
+let pointerGesture = false; // um arrasto (mover, apagar arrastando…) vira UM passo só
+let gestureDirty = false;
+let restoringHistory = false;
+let settingsBeforeChange = null;
+
+function recordHistory() {
+  if (restoringHistory) return;
+  if (pointerGesture) {
+    gestureDirty = true;
+    return;
+  }
+  undoHistory.record({ notes: notesSnapshot() }, settingsBeforeChange);
+  settingsBeforeChange = null;
+}
+
+function finishGesture() {
+  if (!pointerGesture) return;
+  pointerGesture = false;
+  if (gestureDirty) {
+    gestureDirty = false;
+    recordHistory();
+  }
+}
+
+window.addEventListener('pointerdown', () => {
+  finishGesture(); // gesto anterior sem pointerup (soltou fora da janela)
+  pointerGesture = true;
+}, true);
+for (const type of ['pointerup', 'pointercancel']) {
+  // Depois dos handlers do grid (o clique que cria a nota acontece no pointerup).
+  window.addEventListener(type, () => window.setTimeout(finishGesture, 0), true);
+}
+
+function undoRedo(direction) {
+  finishGesture();
+  const target = direction === 'undo' ? undoHistory.undo(projectSettings()) : undoHistory.redo(projectSettings());
+  if (!target) {
+    showToast(direction === 'undo' ? 'Nada para desfazer.' : 'Nada para refazer.');
+    return;
+  }
+  restoringHistory = true;
+  try {
+    if (target.settings) store.set(target.settings);
+    sequence.loadJSON(JSON.parse(target.notes));
+    grid.clearSelection();
+    onSequenceChanged();
+  } finally {
+    restoringHistory = false;
+  }
+}
 
 // ---------------------------------------------------------------- componentes
 const header = initHeader(store, {
@@ -131,7 +191,8 @@ const scheduler = engine ? new AudioScheduler({
     const lengthMs = Math.max(120, ticksToSeconds(note.duration, transport.bpm) * 1000);
     const id = window.setTimeout(() => {
       pendingFlashes.delete(id);
-      keys.flash(note.midi, lengthMs);
+      // Só acende as teclas do instrumento que está aberto (os outros continuam tocando).
+      if (note.instrument === store.get().instrument) keys.flash(note.midi, lengthMs);
     }, delayMs);
     pendingFlashes.add(id);
   },
@@ -225,6 +286,7 @@ function syncLength() {
 }
 
 function onSequenceChanged() {
+  recordHistory();
   syncLength();
   grid.renderNotes();
   updateStatus();
@@ -420,6 +482,7 @@ async function importProjectFile(file) {
 
   if (transport.playing) transport.pause();
   grid.clearSelection();
+  settingsBeforeChange = projectSettings(); // Ctrl+Z desfaz a importação inteira (notas e configurações)
   store.set({ ...result.settings, tool: store.get().tool });
   sequence.setLength(gridLength());
   transport.setGridLength(gridLength());
@@ -513,12 +576,18 @@ const CTRL_SHORTCUTS = {
   KeyX: () => copySelection({ cut: true }),
   KeyV: () => pasteClipboard(),
   KeyA: () => selectAll(),
+  KeyZ: () => undoRedo('undo'),
+  KeyY: () => undoRedo('redo'),
+};
+const CTRL_SHIFT_SHORTCUTS = {
+  KeyZ: () => undoRedo('redo'),
 };
 
 window.addEventListener('keydown', (event) => {
   if (isEditable(event.target)) return;
   if (event.ctrlKey || event.metaKey) {
-    const action = !event.altKey && !event.shiftKey ? CTRL_SHORTCUTS[event.code] : null;
+    const table = event.shiftKey ? CTRL_SHIFT_SHORTCUTS : CTRL_SHORTCUTS;
+    const action = event.altKey ? null : table[event.code];
     if (action) {
       event.preventDefault();
       action();
@@ -593,7 +662,7 @@ function frame() {
 // ---------------------------------------------------------------- inicialização
 // Ponto de inspeção para depuração no console e para os testes E2E.
 window.__beatProductor = {
-  store, sequence, transport, range, grid, audio: engine, getLayout: () => layout, build: APP_BUILD,
+  store, sequence, transport, range, grid, audio: engine, history: undoHistory, getLayout: () => layout, build: APP_BUILD,
 };
 
 keys.render(store.get().instrument);
