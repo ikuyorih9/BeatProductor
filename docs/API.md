@@ -12,7 +12,7 @@ Verifica se o servidor está no ar e informa capacidades.
   "status": "ok",
   "version": "1.0.0",
   "sample_rate": 44100,
-  "instruments": ["piano", "drums", "lofi", "lead"],
+  "instruments": ["piano", "drums", "bass", "lofi", "lead"],
   "formats": ["mp3", "wav"],
   "limits": { "max_loops": 32, "max_total_seconds": 600.0 }
 }
@@ -40,7 +40,7 @@ Cada evento:
 | `time` | número | ≥ 0 e menor que `length` (segundos) |
 | `note` | texto | Nome científico: `C4`, `F#3`… (sem bemóis). Na bateria, só as 17 teclas do kit, `A3` a `C#5` (de baixo para cima: pandeirola, jam block, cowbell, rototons, octobans, bumbo, caixa, chimbal, surdo, tom 2, tom 1, ride, prato de ataque, splash, china, stack, bell); outra nota dá **422** |
 | `duration` | número | 0 < x ≤ 120 (segundos) |
-| `instrument` | texto | `piano`, `drums`, `lofi` ou `lead` |
+| `instrument` | texto | `piano`, `drums`, `bass`, `lofi` ou `lead`. O `bass` soa uma oitava abaixo da `note` (C3 → 65 Hz) |
 | `gain` | número (opcional) | 0 ≤ x ≤ 4 — ganho linear do instrumento no mixer (padrão 1 = 100%; 0 = mudo; o app envia (volume%/100)², então 200% = 4). O servidor aplica por cima a calibração de cada instrumento e de cada peça da bateria. |
 
 Campos desconhecidos são rejeitados. A duração total (`length × repetições`) não pode passar de **600 s**.

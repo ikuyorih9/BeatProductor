@@ -88,9 +88,13 @@ test('configurações salvas são saneadas', () => {
   );
   const valid = {
     instrument: 'lofi', division: '1/16T', meter: '6/8', bpm: 90, bars: 8, loop: true, loops: 7,
-    volumes: { piano: 50, drums: 0, lofi: 100, lead: 120 },
+    volumes: { piano: 50, drums: 0, bass: 80, lofi: 100, lead: 120 },
   };
   assert.deepEqual(sanitizeSettings(valid), valid);
+  // Projeto salvo antes do baixo existir: abre com o baixo em 100%.
+  const old = sanitizeSettings({ ...valid, volumes: { piano: 50, drums: 0, lofi: 100, lead: 120 } });
+  assert.equal(old.volumes.bass, 100);
+  assert.equal(old.volumes.piano, 50);
   assert.equal(sanitizeSettings({ division: 'toString' }).division, defaultSettings().division);
 });
 

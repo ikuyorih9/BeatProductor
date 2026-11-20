@@ -42,9 +42,9 @@ export const FILE_FORMAT_VERSION = 3;
 const DRUM_MIGRATION = Object.freeze({ 1: migrateLegacyDrumMidi, 2: migrateBottomKitMidi });
 
 /** Nome da seção de cada instrumento no arquivo (em português, como no app). */
-const SECTION_OF = Object.freeze({ piano: 'piano', drums: 'bateria', lofi: 'lofi', lead: 'lead' });
+const SECTION_OF = Object.freeze({ piano: 'piano', drums: 'bateria', bass: 'baixo', lofi: 'lofi', lead: 'lead' });
 const INSTRUMENT_OF_SECTION = Object.freeze({
-  piano: 'piano', bateria: 'drums', drums: 'drums', lofi: 'lofi', lead: 'lead',
+  piano: 'piano', bateria: 'drums', drums: 'drums', baixo: 'bass', bass: 'bass', lofi: 'lofi', lead: 'lead',
 });
 /** Nomes das peças aceitos no lugar da nota, na bateria (viram a tecla da peça no kit). */
 const ALIASES_BY_PIECE = Object.freeze({
@@ -193,7 +193,7 @@ const HEADER_FIELDS = {
   repeticoes: (value) => ({ loops: parseInteger(value, LOOPS, 'repeticoes') }),
   instrumento: (value) => {
     const id = INSTRUMENT_OF_SECTION[normalizeKey(value)];
-    if (!id) throw new Error(`instrumento "${value}" desconhecido (piano, bateria, lofi, lead)`);
+    if (!id) throw new Error(`instrumento "${value}" desconhecido (piano, bateria, baixo, lofi, lead)`);
     return { instrument: id };
   },
 };
@@ -325,7 +325,7 @@ export function parseProjectFile(text) {
     if (section.name === 'projeto' || section.name === 'volume') continue;
     const instrument = INSTRUMENT_OF_SECTION[section.name];
     if (!instrument) {
-      fail(section.lineNumber, `seção [${section.name}] desconhecida (projeto, volume, piano, bateria, lofi, lead)`);
+      fail(section.lineNumber, `seção [${section.name}] desconhecida (projeto, volume, piano, bateria, baixo, lofi, lead)`);
       continue;
     }
     for (const { text: line, lineNumber } of section.lines) {

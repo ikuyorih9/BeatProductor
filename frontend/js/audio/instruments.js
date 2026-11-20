@@ -270,6 +270,38 @@ export function drums(ctx, { midi, when }, { noiseBuffer }) {
   }
 }
 
+// ------------------------------------------------------------------ Baixo
+/** O baixo soa uma oitava abaixo da nota escrita (como na partitura de baixo): C3 no grid = C2, 65 Hz. */
+export const BASS_TRANSPOSE = -12;
+
+/**
+ * Baixo elétrico (dedilhado): seno na fundamental (o peso) + dente-de-serra (os harmônicos que fazem
+ * o baixo ser ouvido em alto-falantes pequenos), passa-baixa e envelope de corda pinçada.
+ */
+export function bass(ctx, { midi, when, duration }) {
+  const frequency = midiToFrequency(midi + BASS_TRANSPOSE);
+  const output = ctx.createGain();
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 900;
+  filter.Q.value = Math.SQRT1_2; // Butterworth, igual ao servidor
+  filter.connect(output);
+
+  const body = oscillator(ctx, 'sine', frequency);
+  const edge = oscillator(ctx, 'sawtooth', frequency);
+  const bodyGain = ctx.createGain();
+  const edgeGain = ctx.createGain();
+  bodyGain.gain.value = 0.6;
+  edgeGain.gain.value = 0.4;
+  body.connect(bodyGain).connect(filter);
+  edge.connect(edgeGain).connect(filter);
+
+  const endTime = applyAdsr(output.gain, {
+    start: when, end: when + duration, attack: 0.005, decay: 0.4, sustain: 0.55, release: 0.08, peak: 0.5,
+  });
+  return { output, sources: [body, edge], endTime };
+}
+
 // ------------------------------------------------------------------ Lofi Synth
 /** Lofi: triângulo + seno levemente desafinados, vibrato lento e passa-baixa abafado. */
 export function lofi(ctx, { midi, when, duration }) {
@@ -325,4 +357,4 @@ export function lead(ctx, { midi, when, duration }) {
   return { output, sources: [a, b], endTime };
 }
 
-export const INSTRUMENT_FACTORIES = Object.freeze({ piano, drums, lofi, lead });
+export const INSTRUMENT_FACTORIES = Object.freeze({ piano, drums, bass, lofi, lead });

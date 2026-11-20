@@ -33,7 +33,7 @@ def test_health(client):
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
-    assert body["instruments"] == ["piano", "drums", "lofi", "lead"]
+    assert body["instruments"] == ["piano", "drums", "bass", "lofi", "lead"]
     assert "mp3" in body["formats"]
 
 

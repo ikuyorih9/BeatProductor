@@ -605,6 +605,52 @@ colcheia (4) não dividem o compasso.
 
 ---
 
+## 2026-11-19 — Instrumento Baixo
+
+**Pedido:** adicionar o instrumento BAIXO.
+
+**Decisão de alcance:** o grid vai de C3 a B5, e no tom escrito o grave dele (130 Hz) soaria como um violoncelo. O baixo **soa uma oitava abaixo do escrito**, a mesma convenção da partitura de baixo: C3 → C2 (65 Hz), até B5 → B4.
+- `BASS_TRANSPOSE = -12` está nos dois sintetizadores.
+- A dica de cada tecla, no modo baixo, mostra a nota real.
+
+**Timbre (baixo elétrico dedilhado):**
+- 0,6 seno + 0,4 dente-de-serra na mesma frequência, passa-baixa Butterworth em 900 Hz e envelope de corda pinçada (ataque 5 ms, decai para 55% em ~0,4 s, release 80 ms).
+- O seno dá o peso. A dente-de-serra dá os harmônicos, que fazem o baixo ser ouvido em alto-falante de notebook, que não reproduz 65 Hz.
+
+**Bug de paridade encontrado na calibração:** o baixo saía 6,7 dB mais alto no navegador que no servidor.
+- Causa: a dente-de-serra da Web Audio começa em zero subindo, e a PolyBLEP do servidor (`2p − 1`) começa meio ciclo depois, com a fundamental invertida.
+- Somada ao seno, a fundamental se reforçava no navegador e se cancelava em parte no servidor.
+- Correção: a fase da dente-de-serra do baixo no servidor foi deslocada meio ciclo. Agora os dois ficam a 0,3 dB um do outro.
+- O Lead não foi afetado: são duas dentes-de-serra, sem seno.
+
+**Calibração:** RMS na média dos outros instrumentos melódicos (trim 0,96 no navegador e 0,93 no servidor). O teste de "intensidade parecida" agora inclui o baixo.
+
+**Integração:**
+- Baixo na lista de instrumentos (cor rosa), entre a bateria e o lofi: seletor, mixer, schema da API, `[baixo]` no arquivo de projeto e `/api/health`.
+- Projetos e arquivos antigos abrem com o baixo em 100%.
+- Ao escolher o baixo, a tela desce até as teclas graves.
+- O mixer, agora com 5 canais, quebra para uma segunda linha em telas estreitas (até ~1500 px), sem afetar o grid.
+
+**Teste instável corrigido (E2E):**
+- Sintoma: o teste das teclas acesas falhou uma vez em duas.
+- Causa: sem loop, o play para sozinho no fim, e o "clique no PLAY para pausar" do teste anterior às vezes **começava** a tocar de novo; o teste seguinte então pausava em vez de tocar.
+- Correção: um auxiliar `pauseIfPlaying()`. Depois disso, 4 de 4 execuções seguidas passaram.
+- Antes, um script separado confirmou que o app acende a tecla certa 15 de 15 vezes.
+
+**Testes:**
+- pytest:
+  - o baixo soa C2 (65,4 Hz) para C3 escrito, pelo FFT;
+  - termina em silêncio, segue a duração e tem volume parecido com os outros instrumentos.
+- `node:test`:
+  - seção `[baixo]` no arquivo de projeto, ida e volta;
+  - arquivo e projeto antigos sem baixo abrem com o baixo em 100%.
+- E2E:
+  - baixo no seletor e no mixer, sem teclas desativadas;
+  - nota criada em C3, com a tela nas teclas graves;
+  - frequência real de 65 Hz no navegador.
+
+---
+
 ## Resumo final
 
 | Requisito | Onde |
@@ -620,4 +666,4 @@ colcheia (4) não dividem o compasso.
 | RNF02 Sem build/dependências pesadas | Vanilla JS em ES Modules + Tailwind via CDN, zero pacotes npm |
 | RNF03 MP3 limpo, sem cortes no loop | overlap-add, normalização −1 dBFS, fades de borda |
 
-**Totais:** 155 testes pytest · 109 testes `node:test` · 44 verificações E2E em navegador real.
+**Totais:** 165 testes pytest · 110 testes `node:test` · 45 verificações E2E em navegador real.

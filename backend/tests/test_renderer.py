@@ -106,7 +106,7 @@ def test_muted_sequence_is_silence_without_errors():
 def test_instruments_are_calibrated_to_similar_loudness():
     """No volume 100%, nenhum instrumento melódico fica mais de 3 dB longe dos outros."""
     levels = {}
-    for instrument in ("piano", "lofi", "lead"):
+    for instrument in ("piano", "bass", "lofi", "lead"):
         out = render_pass([Event(0.0, "C4", 0.5, instrument)], 0.5)[: SR // 2]
         levels[instrument] = 20 * np.log10(_rms(out))
     assert max(levels.values()) - min(levels.values()) < 3.0, levels

@@ -64,20 +64,21 @@ test('exportar e importar devolve EXATAMENTE o mesmo projeto, em qualquer compas
   meters.forEach((meter, i) => {
     const settings = {
       ...defaultSettings(),
-      instrument: ['piano', 'drums', 'lofi', 'lead'][i % 4],
+      instrument: ['piano', 'drums', 'bass', 'lofi', 'lead'][i % 5],
       division: [...divisions.slice(i % divisions.length), ...divisions].find((d) => divisionFitsMeter(d, meter)),
       meter,
       bpm: 73 + i,
       bars: 3 + i,
       loop: i % 2 === 0,
       loops: 2 + i,
-      volumes: { piano: 35, drums: 150, lofi: 0, lead: 95 },
+      volumes: { piano: 35, drums: 150, bass: 120, lofi: 0, lead: 95 },
     };
     const seq = new Sequence(10_000);
     seq.addNote({ instrument: 'piano', midi: 60, start: 0, duration: 12 });
     seq.addNote({ instrument: 'piano', midi: 61, start: 7, duration: 5 });
     seq.addRest({ instrument: 'piano', midi: 72, start: 40, duration: 2 });
     seq.addNote({ instrument: 'drums', midi: 62, start: 0, duration: 3 });
+    seq.addNote({ instrument: 'bass', midi: 48, start: 6, duration: 9 });
     seq.addNote({ instrument: 'drums', midi: 65, start: 33, duration: 3 });
     seq.addNote({ instrument: 'lofi', midi: 83, start: 100, duration: 70 });
     seq.addNote({ instrument: 'lead', midi: 48, start: 999, duration: 1 }); // além do grid: preservada
@@ -174,4 +175,21 @@ test('avisos: sobreposição na mesma linha e notas depois do fim do grid', () =
   assert.equal(result.warnings.length, 2);
   assert.match(result.warnings.join(' '), /sobrepostas/);
   assert.match(result.warnings.join(' '), /depois do fim do grid/);
+});
+
+test('baixo: seção [baixo] no arquivo; arquivo antigo (sem baixo) abre com o baixo em 100%', () => {
+  const seq = new Sequence(192);
+  seq.addNote({ instrument: 'bass', midi: 48, start: 0, duration: 12 });
+  const text = serializeProjectFile({ ...defaultSettings(), instrument: 'bass' }, seq.toJSON());
+  assert.match(text, /instrumento\s+= baixo/);
+  assert.match(text, /\[baixo\]\n# posição  nota  duração\n1\.1\s+C3\s+1/);
+  const back = parseProjectFile(text);
+  assert.equal(back.ok, true, JSON.stringify(back.errors));
+  assert.equal(back.settings.instrument, 'bass');
+  assert.deepEqual(back.items.map((n) => [n.instrument, n.midi, n.duration]), [['bass', 48, 12]]);
+
+  const old = parseProjectFile('[projeto]\nversao = 3\n[volume]\npiano = 50\n[piano]\n1.1  C4  1\n');
+  assert.equal(old.ok, true, JSON.stringify(old.errors));
+  assert.equal(old.settings.volumes.bass, 100);
+  assert.equal(old.settings.volumes.piano, 50);
 });

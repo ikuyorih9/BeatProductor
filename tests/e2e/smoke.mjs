@@ -91,6 +91,12 @@ async function drag(x1, y1, x2, y2, steps = 6) {
   await mouse('mouseReleased', x2, y2, 0);
 }
 
+/** Pausa só se estiver tocando (sem loop, o play para sozinho no fim; aí o botão daria play de novo). */
+async function pauseIfPlaying() {
+  if (await evaluate('window.__beatProductor.transport.playing')) await clickElement('#play-button');
+  await waitFor('!window.__beatProductor.transport.playing', 2000, 'pausou');
+}
+
 async function clickElement(selector) {
   const point = await evaluate(`(() => {
     const el = document.querySelector(${JSON.stringify(selector)});
@@ -169,8 +175,8 @@ await check('cabeçalho tem valores padrão', async () => {
   assert.equal(await evaluate('document.getElementById("bpm-input").value'), '120');
   assert.equal(await evaluate('document.getElementById("division-select").value'), '1/16');
   assert.equal(await evaluate('document.getElementById("meter-select").value'), '4/4');
-  assert.equal(await evaluate('document.querySelectorAll("#mixer input[type=range]").length'), 4);
-  assert.equal(await evaluate('document.getElementById("instrument-select").options.length'), 4);
+  assert.equal(await evaluate('document.querySelectorAll("#mixer input[type=range]").length'), 5);
+  assert.equal(await evaluate('document.getElementById("instrument-select").options.length'), 5);
   assert.equal(await evaluate('document.getElementById("loops-input").disabled'), true);
 });
 
@@ -581,6 +587,43 @@ await check('compasso 3/8: a semínima não cabe, a célula vira colcheia e a op
   await setControl('division-select', '1/16');
 });
 
+await check('baixo: está no seletor e no mixer, usa o grid inteiro e toca uma oitava abaixo do escrito', async () => {
+  const options = await evaluate('[...document.querySelectorAll("#instrument-select option")].map(o => o.value)');
+  assert.deepEqual(options, ['piano', 'drums', 'bass', 'lofi', 'lead']);
+  assert.equal(await evaluate('document.getElementById("volume-bass").value'), '100');
+  await setControl('instrument-select', 'bass');
+  assert.equal(await evaluate('document.querySelectorAll("#piano-keys .key-disabled").length'), 0);
+  assert.match(await evaluate('document.querySelector("#piano-keys [data-midi=\\"48\\"]").title'), /soa C2/);
+  // Ao escolher o baixo, a tela desce até as teclas graves: C3 (a última linha) fica visível.
+  const c3 = await evaluate(`(() => {
+    const row = document.querySelectorAll('.grid-row')[35].getBoundingClientRect();
+    const box = document.getElementById('roll-scroll').getBoundingClientRect();
+    return { top: row.top, bottom: row.bottom, boxTop: box.top + 24, boxBottom: box.bottom };
+  })()`);
+  assert.ok(c3.top >= c3.boxTop && c3.bottom <= c3.boxBottom + 1, `C3 fora da tela no baixo: ${JSON.stringify(c3)}`);
+  await clickElement('#tool-draw');
+  const p = await cellPoint(35, 10); // C3, a tecla mais grave
+  await click(p.x, p.y);
+  await waitFor(`${notesOf('bass')}.some(n => n.midi === 48 && n.start === 30)`, 2000, 'nota do baixo criada');
+  const hz = await evaluate(`(async () => {
+    const { INSTRUMENT_FACTORIES } = await import('./js/audio/instruments.js');
+    const sr = 44100, n = 32768;
+    const ctx = new OfflineAudioContext(1, n, sr);
+    const v = INSTRUMENT_FACTORIES.bass(ctx, { midi: 48, when: 0, duration: 1 }, {});
+    v.output.connect(ctx.destination); v.sources.forEach((s) => { s.start(0); s.stop(v.endTime); });
+    const d = await ctx.startRendering().then((b) => b.getChannelData(0));
+    // Frequência pela autocorrelação (período entre 40 e 200 Hz).
+    let best = 0, lag = 0;
+    for (let k = Math.floor(sr / 200); k <= Math.ceil(sr / 40); k += 1) {
+      let c = 0; for (let i = 0; i < n - k; i += 1) c += d[i] * d[i + k];
+      if (c > best) { best = c; lag = k; }
+    }
+    return sr / lag;
+  })()`);
+  assert.ok(Math.abs(hz - 65.4) < 2, `C3 escrito deveria soar C2 (65,4 Hz), soou ${hz.toFixed(1)} Hz`);
+  await setControl('instrument-select', 'drums');
+});
+
 await check('mixer: o slider muda o volume do instrumento', async () => {
   await setControl('volume-lead', 50);
   assert.equal(await evaluate('window.__beatProductor.store.get().volumes.lead'), 50);
@@ -599,7 +642,7 @@ if (await evaluate('typeof window.__beatProductor.audio === "object"')) {
     await clickElement('#play-button');
     await waitFor('window.__beatProductor.audio.context.state === "running"', 3000, 'AudioContext running');
     await waitFor('window.__beatProductor.audio.stats.scheduled > 0', 3000, 'vozes agendadas');
-    await clickElement('#play-button');
+    await pauseIfPlaying();
   });
 
   await check('durante o play, só acendem as teclas do instrumento aberto (os outros continuam tocando)', async () => {
@@ -616,11 +659,13 @@ if (await evaluate('typeof window.__beatProductor.audio === "object"')) {
       return [piano.id, hat.id];
     })()`);
     const scheduledBefore = await evaluate('window.__beatProductor.audio.stats.scheduled');
+    await pauseIfPlaying();
     await clickElement('#start-button');
     await clickElement('#play-button');
+    await waitFor('window.__beatProductor.transport.playing', 2000, 'começou a tocar');
     await waitFor('window.__lit.has(64)', 3000, 'a tecla do chimbal acendeu');
     await sleep(400);
-    await clickElement('#play-button');
+    await pauseIfPlaying();
     const lit = await evaluate('[...window.__lit]');
     assert.ok(!lit.includes(60), `a tecla da nota do PIANO acendeu na bateria: ${lit}`);
     const scheduled = await evaluate('window.__beatProductor.audio.stats.scheduled') - scheduledBefore;

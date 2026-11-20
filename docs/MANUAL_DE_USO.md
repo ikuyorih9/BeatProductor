@@ -102,7 +102,7 @@ Quando aparecer *"Beat Productor rodando em http://127.0.0.1:8000"*, abra esse e
 
 | Controle | O que faz |
 |---|---|
-| **Instrumento** | Instrumento das novas notas: Piano Acústico, Bateria, Lofi Synth ou Lead Synth. A faixa colorida à esquerda do seletor é a cor das notas desse instrumento. As notas dos outros instrumentos continuam no grid, esmaecidas. |
+| **Instrumento** | Instrumento das novas notas: Piano Acústico, Bateria, Baixo, Lofi Synth ou Lead Synth. A faixa colorida à esquerda do seletor é a cor das notas desse instrumento. As notas dos outros instrumentos continuam no grid, esmaecidas. |
 | **Compasso** | Fórmula de compasso da partitura: `2/4`, `3/4`, `4/4` (padrão), `5/4`, `3/8`, `5/8`, `6/8`, `7/8`, `9/8`, `12/8`. Define as barras de compasso, os tempos da régua e a posição *compasso.tempo*. Trocar **não move** as notas. Em 3/8, 5/8, 7/8 e 9/8 a célula de semínima e a de tercina de colcheia não cabem no compasso e ficam desabilitadas (o app muda para colcheia e avisa). |
 | **BPM (♩)** | Andamento em **semínimas por minuto**, de 40 a 240 (padrão 120) — o mesmo número da indicação de metrônomo "♩ = 120" da partitura. Muda em tempo real. Veja 4.7 para compassos 6/8. |
 | **Compassos** | Tamanho da sequência (1 a 16; padrão 4). Diminuir não apaga notas: elas reaparecem ao aumentar de novo. |
@@ -214,6 +214,7 @@ Com notas selecionadas:
 |---|---|---|
 | **Piano Acústico** | Percussivo, decai naturalmente (mais rápido nos agudos) | Soltar antes encurta; notas longas deixam o som decair |
 | **Bateria** | 17 peças: bumbo, caixa, chimbal, surdo, 2 tons, ride, prato de ataque, splash, china, stack, bell, octobans, rototons, cowbell, jam block e pandeirola (ver 4.6) | Ignorada (som *one-shot*) |
+| **Baixo** | Baixo elétrico dedilhado: grave encorpado com ataque de corda. **Soa uma oitava abaixo da nota escrita**, como na partitura de baixo (a tecla C3 soa C2, 65 Hz; a dica da tecla mostra a nota real). Ao escolher o baixo, a tela desce até as teclas graves | Sustenta enquanto durar a nota (a corda vai perdendo força) |
 | **Lofi Synth** | Abafado e quente, com leve vibrato | Sustenta enquanto durar a nota |
 | **Lead Synth** | Brilhante (dente-de-serra), para melodias | Sustenta enquanto durar a nota |
 
@@ -338,6 +339,7 @@ instrumento = piano    # instrumento selecionado ao abrir
 [volume]               # mixer, em % (100 = equilibrado)
 piano   = 100
 bateria = 80
+baixo   = 100
 lofi    = 100
 lead    = 100
 
@@ -355,6 +357,11 @@ lead    = 100
 1.2         caixa   1/2
 1.3         chimbal 1/4
 3.3         surdo   1/4
+
+[baixo]
+1.1         C3    2
+1.3         G3    1
+1.4         A#3   1
 ```
 
 Cada nota é uma linha **`posição  nota  duração  [pausa]`**, separadas por espaços:
@@ -371,7 +378,8 @@ Cada nota é uma linha **`posição  nota  duração  [pausa]`**, separadas por 
   Em 4/4: `1` = semínima, `2` = mínima, `4` = semibreve, `1/2` = colcheia, `1/4` = semicolcheia.
 - A menor fração possível é 1/12 de semínima (o grid é exato até a sextina).
 - Seções e campos podem vir em qualquer ordem e com maiúsculas/acentos (`[Projeto]`, `Divisão`). Campos que
-  faltarem ficam com o valor padrão; instrumentos sem notas podem ser omitidos.
+  faltarem ficam com o valor padrão; instrumentos sem notas podem ser omitidos. As seções dos instrumentos são
+  `[piano]`, `[bateria]`, `[baixo]`, `[lofi]` e `[lead]`. Arquivos de antes do baixo abrem normalmente (volume do baixo em 100%).
 - Se houver erro, **nada é importado** e o app mostra a linha e o motivo, por exemplo
   *"linha 14: tempo 5 inválido (o compasso 4/4 tem 4 tempos)"*.
 - Importar **substitui** o projeto atual (o app pede confirmação).

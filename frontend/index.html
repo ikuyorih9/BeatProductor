@@ -129,7 +129,7 @@
     // se ainda assim falhar, mostra o que fazer em vez de deixar a tela sem resposta. Também cobre o
     // navegador rodando a versão antiga inteira do cache (o número de versão não bate).
     (function () {
-      var APP_BUILD = 5; // = APP_BUILD de js/config.js
+      var APP_BUILD = 6; // = APP_BUILD de js/config.js
       var KEY = 'beat-productor:recarregou';
       var failed = false;
       function started() { return !!window.__beatProductor && window.__beatProductor.build === APP_BUILD; }

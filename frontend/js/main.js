@@ -248,11 +248,18 @@ function previewNote(midi, duration = 0.35) {
   });
 }
 
-/** Rola o grid na vertical para deixar as teclas do instrumento no meio da tela (o kit da bateria). */
+/**
+ * Rola o grid na vertical para a região do instrumento: o kit da bateria fica no meio da tela; no
+ * baixo, a tela desce até as teclas graves (onde ficam as linhas de baixo).
+ */
 function revealPlayableRows(instrument) {
+  const scroller = byId('roll-scroll');
+  if (instrument === 'bass') {
+    scroller.scrollTop = scroller.scrollHeight;
+    return;
+  }
   const { minMidi, maxMidi } = playableRange(instrument);
   if (minMidi === LOWEST_MIDI && maxMidi === range[0]) return; // faixa inteira: nada a fazer
-  const scroller = byId('roll-scroll');
   const top = rowIndex.get(maxMidi) * ROW_HEIGHT;
   const bottom = (rowIndex.get(minMidi) + 1) * ROW_HEIGHT;
   const rulerHeight = 24;

@@ -1,4 +1,4 @@
-"""Síntese dos 4 instrumentos (a bateria com 17 peças) com NumPy/SciPy.
+"""Síntese dos 5 instrumentos (a bateria com 17 peças) com NumPy/SciPy.
 
 Cada função devolve um array mono ``float32`` com a nota completa,
 incluindo a cauda (release). Os parâmetros espelham
@@ -256,6 +256,25 @@ def drums(midi: int, duration: float, sr: int = SAMPLE_RATE) -> np.ndarray:  # n
     return _fade_tail(signal.astype(np.float32), sr)
 
 
+# --------------------------------------------------------------------------- baixo
+#: O baixo soa uma oitava abaixo da nota escrita (como na partitura de baixo): C3 = C2, 65 Hz.
+BASS_TRANSPOSE = -12
+
+
+def bass(midi: int, duration: float, sr: int = SAMPLE_RATE) -> np.ndarray:
+    """Baixo elétrico: seno na fundamental + dente-de-serra, passa-baixa e envelope de corda pinçada."""
+    freq = midi_to_frequency(midi + BASS_TRANSPOSE)
+    release = 0.08
+    n = int((max(duration, 0.005) + release * 1.5) * sr)
+    phase = _phase(freq, n, sr)
+    # A dente-de-serra do navegador começa no zero subindo (meio ciclo à frente da PolyBLEP): com a
+    # mesma fase, a fundamental dela soma com a do seno, como no navegador (com a fase oposta, cancelaria).
+    signal = 0.6 * np.sin(TWO_PI * phase) + 0.4 * _saw_polyblep(phase + 0.5, freq, sr)
+    signal = _filter(signal, "lowpass", 900.0, sr)
+    env = adsr(n, sr, duration=duration, attack=0.005, decay=0.4, sustain=0.55, release=release, peak=0.5)
+    return _fade_tail((signal * env).astype(np.float32), sr)
+
+
 # --------------------------------------------------------------------------- lofi synth
 def lofi(midi: int, duration: float, sr: int = SAMPLE_RATE) -> np.ndarray:
     """Lofi: triângulo + seno desafinados, vibrato lento e passa-baixa abafado."""
@@ -284,7 +303,7 @@ def lead(midi: int, duration: float, sr: int = SAMPLE_RATE) -> np.ndarray:
     return _fade_tail((signal * env).astype(np.float32), sr)
 
 
-SYNTHS = {"piano": piano, "drums": drums, "lofi": lofi, "lead": lead}
+SYNTHS = {"piano": piano, "drums": drums, "bass": bass, "lofi": lofi, "lead": lead}
 
 
 def render_note(instrument: str, midi: int, duration: float, sr: int = SAMPLE_RATE) -> np.ndarray:

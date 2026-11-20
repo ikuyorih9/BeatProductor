@@ -6,6 +6,7 @@
 import {
   drumPieceForMidi, isBlackKey, isPlayable, midiToName, pitchClass,
 } from '../core/music.js';
+import { BASS_TRANSPOSE } from '../audio/instruments.js';
 import { createElement } from './dom.js';
 
 export class PianoKeys {
@@ -47,6 +48,8 @@ export class PianoKeys {
       } else if (drumMode) {
         label = '';
         title = `${name} — fora do kit de bateria`;
+      } else if (instrument === 'bass') {
+        title = `${name} (soa ${midiToName(midi + BASS_TRANSPOSE)}: o baixo soa uma oitava abaixo do escrito)`;
       }
       if (!isPlayable(instrument, midi)) classes.push('key-disabled');
       const key = createElement('div', classes.join(' '), { 'data-midi': String(midi), title, text: label });

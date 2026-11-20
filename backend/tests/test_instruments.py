@@ -9,7 +9,7 @@ NOTES = [48, 60, 61, 62, 63, 71, 83]  # extremos da faixa e notas do meio
 DRUM_NOTES = list(DRUM_KIT)  # as 17 peças do kit (A3 a C#5)
 CASES = [(i, m) for i in SYNTHS if i != "drums" for m in NOTES] + [("drums", m) for m in DRUM_NOTES]
 #: Uma nota válida de cada instrumento (a bateria só aceita as teclas do kit).
-SAMPLE_NOTE = {"piano": 60, "drums": 62, "lofi": 60, "lead": 60}
+SAMPLE_NOTE = {"piano": 60, "drums": 62, "bass": 48, "lofi": 60, "lead": 60}
 
 
 @pytest.mark.parametrize("instrument,midi", CASES)
@@ -30,7 +30,7 @@ def test_voice_ends_in_silence(instrument):
     assert float(np.max(np.abs(voice[-int(0.002 * SAMPLE_RATE):]))) < 0.02
 
 
-@pytest.mark.parametrize("instrument", ["piano", "lofi", "lead"])
+@pytest.mark.parametrize("instrument", ["piano", "bass", "lofi", "lead"])
 def test_sustained_instruments_follow_duration(instrument):
     short = render_note(instrument, 60, 0.2)
     long = render_note(instrument, 60, 1.5)
@@ -92,3 +92,11 @@ def test_adsr_note_shorter_than_attack():
     env = adsr(1000, 1000, duration=0.01, attack=0.05, decay=0.1, sustain=0.5, release=0.2, peak=1.0)
     assert np.all(np.isfinite(env))
     assert env.max() <= 1.0
+
+
+def test_bass_sounds_one_octave_below_the_written_note():
+    """Como na partitura de baixo: C3 escrito (MIDI 48) soa C2 (65,4 Hz)."""
+    voice = render_note("bass", 48, 1.0).astype(np.float64)[: SAMPLE_RATE]
+    spectrum = np.abs(np.fft.rfft(voice * np.hanning(len(voice))))
+    peak_hz = np.argmax(spectrum) * SAMPLE_RATE / len(voice)
+    assert abs(peak_hz - 65.4) < 2.0, peak_hz

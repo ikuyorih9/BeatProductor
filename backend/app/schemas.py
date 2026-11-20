@@ -28,7 +28,7 @@ from .core.config import (
 )
 from .core.music import DRUM_KIT, NOTE_PATTERN, drum_piece_for_midi, midi_to_name, note_to_midi
 
-Instrument = Literal["piano", "drums", "lofi", "lead"]
+Instrument = Literal["piano", "drums", "bass", "lofi", "lead"]
 
 # Tolerância para arredondamentos de ponto flutuante vindos do navegador.
 EPSILON = 1e-6
