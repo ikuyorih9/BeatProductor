@@ -79,9 +79,10 @@ cd BeatProducer
 - encontra um Python compatível ou, se não houver, baixa o instalador oficial do python.org, confere o hash e instala um Python só para o app;
 - prepara o ambiente na primeira vez;
 - escolhe uma porta livre e sobe o servidor;
-- abre o navegador.
+- abre o navegador;
+- aceita conexões da rede local e mostra o link para abrir no celular (mesmo Wi-Fi).
 
-Para encerrar, feche a janela. Opções de linha de comando: `--port N`, `--no-browser`, `--no-pause`, `--install-python`.
+Para encerrar, feche a janela. Opções de linha de comando: `--port N`, `--local` (só este computador), `--no-browser`, `--no-pause`, `--install-python`.
 
 **Pelo terminal:**
 

@@ -6,9 +6,10 @@
 //      o Python só para o Beat Productor, sem administrador e sem mexer no PATH;
 //   2. instala/atualiza as dependências só quando backend/requirements.txt muda;
 //   3. escolhe uma porta livre (8000 a 8020), sobe o servidor e abre o navegador;
+//      o servidor aceita conexões da rede local (0.0.0.0), então o celular no mesmo Wi-Fi também abre;
 //   4. fechar a janela ou apertar Ctrl+C encerra o servidor.
 //
-// Opções: --port N  --no-browser  --no-pause  --install-python  --help
+// Opções: --port N  --local  --no-browser  --no-pause  --install-python  --help
 // Compilação: launcher\build.ps1 (usa o csc.exe do .NET Framework, presente em todo Windows).
 // Código compatível com C# 5 (o compilador que acompanha o .NET Framework 4.x).
 
@@ -17,6 +18,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -39,7 +41,11 @@ namespace BeatProductor
 
     internal static class Launcher
     {
-        private const string Host = "127.0.0.1";
+        // Endereço que o próprio computador usa para falar com o servidor (navegador, checagens).
+        private const string LocalHost = "127.0.0.1";
+        // Onde o servidor escuta: 0.0.0.0 = todas as interfaces (outros aparelhos do Wi-Fi alcançam);
+        // com --local, só o próprio computador.
+        private static string bindHost = "0.0.0.0";
         private const int FirstPort = 8000;
         private const int LastPort = 8020;
         private const int StartupTimeoutSeconds = 60;
@@ -63,10 +69,12 @@ namespace BeatProductor
                 if (arg == "--no-browser") openBrowser = false;
                 else if (arg == "--no-pause") pauseOnError = false;
                 else if (arg == "--install-python") forceInstall = true;
+                else if (arg == "--local") bindHost = LocalHost;
                 else if (arg == "--port" && i + 1 < args.Length && int.TryParse(args[i + 1], out requestedPort) && requestedPort > 0 && requestedPort < 65536) i++;
                 else if (arg == "--help" || arg == "-h" || arg == "/?")
                 {
-                    Console.WriteLine("Uso: BeatProductor.exe [--port N] [--no-browser] [--no-pause] [--install-python]");
+                    Console.WriteLine("Uso: BeatProductor.exe [--port N] [--local] [--no-browser] [--no-pause] [--install-python]");
+                    Console.WriteLine("  --local           aceita conexões só deste computador (sem acesso pelo Wi-Fi)");
                     Console.WriteLine("  --install-python  ignora os Pythons do sistema e usa (instalando se preciso) o Python próprio do Beat Productor");
                     return 0;
                 }
@@ -131,7 +139,7 @@ namespace BeatProductor
             Step("Iniciando o servidor na porta " + port + " ...");
             ProcessStartInfo info = new ProcessStartInfo(python,
                 "-m uvicorn app.main:app --app-dir " + Quote(backend) +
-                " --host " + Host + " --port " + port + " --log-level warning");
+                " --host " + bindHost + " --port " + port + " --log-level warning");
             info.UseShellExecute = false;
             info.WorkingDirectory = root;
             server = Process.Start(info);
@@ -148,6 +156,7 @@ namespace BeatProductor
 
             Console.WriteLine();
             Ok("Beat Productor rodando em " + url);
+            if (bindHost != LocalHost) ShowNetworkAccess(port);
             Console.WriteLine("   Para encerrar: feche esta janela ou aperte Ctrl+C.");
             Console.WriteLine();
             if (openBrowser) OpenBrowser(url);
@@ -453,7 +462,79 @@ namespace BeatProductor
 
         private static string Url(int port)
         {
-            return "http://" + Host + ":" + port + "/";
+            return "http://" + LocalHost + ":" + port + "/";
+        }
+
+        /// <summary>Mostra o link para abrir em outro aparelho do Wi-Fi e avisa se a rede está como Pública.</summary>
+        private static void ShowNetworkAccess(int port)
+        {
+            List<string> ips = LanAddresses();
+            if (ips.Count > 0)
+            {
+                Ok("No celular (ou outro aparelho no mesmo Wi-Fi), abra:");
+                foreach (string ip in ips) Write(ConsoleColor.Green, "     http://" + ip + ":" + port + "/");
+            }
+            else
+            {
+                Warn("Não encontrei o IP deste computador na rede; veja o \"Endereço IPv4\" no comando ipconfig.");
+            }
+
+            List<string> publicNetworks = PublicNetworks();
+            if (publicNetworks.Count > 0)
+            {
+                Warn("A rede \"" + string.Join("\", \"", publicNetworks.ToArray()) + "\" está como Pública: o firewall do Windows");
+                Warn("bloqueia os outros aparelhos. Para liberar, mude para Privada em Configurações > Rede e Internet.");
+            }
+            Console.WriteLine("   Se o Windows perguntar, permita o acesso do Python só em Redes privadas.");
+            Console.WriteLine("   Para não aceitar conexões da rede, abra com --local.");
+        }
+
+        /// <summary>IPv4 das placas ligadas e conectadas a um roteador (ignora as virtuais do Docker/WSL).</summary>
+        private static List<string> LanAddresses()
+        {
+            List<string> result = new List<string>();
+            try
+            {
+                foreach (NetworkInterface nic in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (nic.OperationalStatus != OperationalStatus.Up || nic.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+                    IPInterfaceProperties props = nic.GetIPProperties();
+                    bool hasGateway = false;
+                    foreach (GatewayIPAddressInformation gateway in props.GatewayAddresses)
+                    {
+                        if (gateway.Address.AddressFamily == AddressFamily.InterNetwork && !gateway.Address.Equals(IPAddress.Any)) hasGateway = true;
+                    }
+                    if (!hasGateway) continue;
+                    foreach (UnicastIPAddressInformation address in props.UnicastAddresses)
+                    {
+                        if (address.Address.AddressFamily == AddressFamily.InterNetwork) result.Add(address.Address.ToString());
+                    }
+                }
+            }
+            catch (NetworkInformationException) { }
+            return result;
+        }
+
+        /// <summary>Nomes das redes conectadas marcadas como Públicas (via NetworkListManager do Windows).</summary>
+        private static List<string> PublicNetworks()
+        {
+            List<string> result = new List<string>();
+            try
+            {
+                Type managerType = Type.GetTypeFromCLSID(new Guid("DCB00C01-570F-4A9B-8D69-199FDBA5723B"));
+                object manager = Activator.CreateInstance(managerType);
+                const int ConnectedNetworks = 1; // NLM_ENUM_NETWORK_CONNECTED
+                object networks = managerType.InvokeMember("GetNetworks", BindingFlags.InvokeMethod, null, manager, new object[] { ConnectedNetworks });
+                foreach (object network in (System.Collections.IEnumerable)networks)
+                {
+                    Type t = network.GetType();
+                    int category = (int)t.InvokeMember("GetCategory", BindingFlags.InvokeMethod, null, network, null);
+                    if (category == 0) // NLM_NETWORK_CATEGORY_PUBLIC
+                        result.Add((string)t.InvokeMember("GetName", BindingFlags.InvokeMethod, null, network, null));
+                }
+            }
+            catch (Exception) { } // sem o serviço (raro): só deixa de avisar
+            return result;
         }
 
         private static bool IsBeatProductor(int port)
@@ -510,7 +591,7 @@ namespace BeatProductor
             // E conseguimos reservá-la?
             try
             {
-                TcpListener listener = new TcpListener(IPAddress.Loopback, port);
+                TcpListener listener = new TcpListener(bindHost == LocalHost ? IPAddress.Loopback : IPAddress.Any, port);
                 listener.ExclusiveAddressUse = true;
                 listener.Start();
                 listener.Stop();

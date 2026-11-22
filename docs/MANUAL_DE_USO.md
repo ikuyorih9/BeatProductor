@@ -34,7 +34,11 @@ Dê **duplo clique em `BeatProductor.exe`**, na pasta principal do projeto. Uma 
    - se quiser removê-lo, ele aparece em *Configurações > Aplicativos* como "Python 3.13";
    - se o `.venv` tiver sido criado antes com um Python incompatível, ele é recriado sozinho;
 2. sobe o servidor numa porta livre (8000 ou a próxima disponível);
-3. abre o Beat Productor no seu navegador.
+3. abre o Beat Productor no seu navegador;
+4. mostra o link para abrir no **celular** ou em outro aparelho do mesmo Wi-Fi (ex.: `http://192.168.0.15:8000/`).
+   Se a rede estiver como **Pública** no Windows, a janela avisa: o firewall bloqueia os outros aparelhos até
+   você mudar para **Privada** em Configurações > Rede e Internet. Para aceitar só este computador, abra o
+   exe com `--local`.
 
 **Deixe a janela aberta** enquanto usa o app. Para encerrar, feche a janela (ou aperte **Ctrl+C** nela).
 Se você der duplo clique de novo com ele já aberto, apenas uma nova aba do navegador é aberta.
