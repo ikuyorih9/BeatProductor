@@ -1,0 +1,8 @@
+# Só backend/app, backend/requirements.txt e frontend/ entram na imagem.
+*
+!backend/requirements.txt
+!backend/app/
+!frontend/
+**/__pycache__
+**/*.py[cod]
+frontend/scripts/
