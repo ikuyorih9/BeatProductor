@@ -60,6 +60,9 @@ Na primeira vez o script cria o ambiente Python (`.venv`) e instala as dependên
 Quando aparecer *"Beat Productor rodando em http://127.0.0.1:8000"*, abra esse endereço no navegador.
 
 - Outra porta: `scripts\run.ps1 -Port 9000` (Windows) ou `scripts/run.sh 9000`.
+- Abrir no celular ou em outro computador do mesmo Wi-Fi: `scripts\run.ps1 -Rede` (Windows). O terminal
+  mostra o link (ex.: `http://192.168.0.15:8000`). Se a rede estiver como **Pública** no Windows, o firewall
+  bloqueia os outros aparelhos: mude para **Privada** em Configurações > Rede e Internet.
 - Encerrar: **Ctrl+C** no terminal.
 
 > Abrir o `index.html` direto pelo explorador de arquivos (`file://`) **não funciona**: o navegador
